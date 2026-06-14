@@ -7,14 +7,14 @@ function Dice({ currentRoll, onRoll, currentPlayer, currentPlayerName, isAnimati
 
   useEffect(() => {
     if (botRolling && playRollSound) {
-      playRollSound();
+      playRollSound('roll');
     }
   }, [botRolling, playRollSound]);
 
   const isCurrentlyRolling = localIsRolling || botRolling;
   const hasRolled = currentRoll > 0;
   
-  // Also disable if it's not the local user's turn
+  // Disable if it's not the local user's turn, currently rolling, animating, or already rolled
   const isDisabled = isCurrentlyRolling || hasRolled || isAnimating || isBot || (!isMyTurn && !isBot);
 
   const rollDice = () => {
@@ -22,7 +22,9 @@ function Dice({ currentRoll, onRoll, currentPlayer, currentPlayerName, isAnimati
     
     clickLock.current = true;
     setLocalIsRolling(true);
-    if (playRollSound) playRollSound();
+    
+    // Play sound from the prop passed down by App.jsx
+    if (playRollSound) playRollSound('roll');
 
     setTimeout(() => {
       const newValue = Math.floor(Math.random() * 6) + 1;
