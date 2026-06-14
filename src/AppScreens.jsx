@@ -1,5 +1,4 @@
-// AppScreens.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Board from './Board';
 import Dice from './Dice';
 import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModal, SettingsModal } from './Modals';
@@ -126,6 +125,25 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   const attackingToken = gameState?.attackingToken || null;
   const isMyTurn = players?.[currentPlayer]?.uid === user?.uid;
 
+  // --- DYNAMIC MOBILE BOARD SCALING ---
+  const [boardScale, setBoardScale] = useState(1);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      const screenW = window.innerWidth;
+      // 520px is the exact pixel width of the board. 
+      // We divide by 530 to guarantee a safe 5px margin on both sides so it never touches the absolute edge.
+      if (screenW < 530) {
+        setBoardScale(screenW / 530);
+      } else {
+        setBoardScale(1);
+      }
+    };
+    handleResize(); // Run once on mount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="game-wrapper">
       <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
@@ -135,7 +153,8 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           <button className="settings-icon-btn" onClick={() => uiActions.setActiveModal('settings')}>⚙️</button>
         </div>
 
-        <div className="board-scaler">
+        {/* Applied perfectly calculated scale directly via React */}
+        <div className="board-scaler" style={{ transform: `scale(${boardScale})`, height: `${520 * boardScale}px` }}>
           <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} />
         </div>
         
