@@ -44,11 +44,9 @@ function App() {
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
-  // THIS RUNS AFTER THE SPLASH SCREEN / VIDEO FINISHES
   const handleSplashComplete = async (enteredName) => {
-    localStorage.setItem('ludo_player_name', enteredName); // Save for next time
+    localStorage.setItem('ludo_player_name', enteredName);
     
-    // If they aren't logged in, log them in as a guest automatically!
     if (!auth.currentUser) {
       try {
         await signInAnonymously(auth);
@@ -56,10 +54,8 @@ function App() {
         console.error("Guest login failed", e);
       }
     } else {
-      // If they are already logged in, update their name in the database
       update(ref(db, `users/${auth.currentUser.uid}`), { displayName: enteredName });
     }
-    
     setShowSplash(false);
   };
 
@@ -91,7 +87,6 @@ function App() {
             if (!data.friendCode) { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); update(ref(db, `users/${currentUser.uid}`), { friendCode: code }); data.friendCode = code; }
             setProfile(data);
           } else {
-            // Apply the name they just entered on the first screen
             const savedName = localStorage.getItem('ludo_player_name');
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
             const newProfile = { 
@@ -117,7 +112,6 @@ function App() {
 
   const loginAsGuest = async () => { try { await signInAnonymously(auth); } catch (e) { setAlertMsg(`Guest Error: ${e.message}`); } };
   
-  // NEW FUNCTION: Link an existing guest account to Google
   const linkGoogleAccount = async () => {
     try {
       await linkWithPopup(auth.currentUser, googleProvider);
@@ -128,6 +122,69 @@ function App() {
       } else {
         setAlertMsg(`Google Link Error: ${e.message}`);
       }
+    }
+  };
+
+  // --- NEW: Image Uploader ---
+  // Compresses image so it easily fits in Firebase Realtime DB without Firebase Storage
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAlertMsg("Image is too large. Please select an image under 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 200; // Perfect size for profile icons
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Compress nicely
+        setProfile({ ...profile, photoURL: dataUrl });
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // --- NEW: Save Profile ---
+  const saveProfile = async () => {
+    if (!user || !profile) return;
+    try {
+      await update(ref(db, `users/${user.uid}`), {
+        displayName: profile.displayName,
+        photoURL: profile.photoURL,
+        country: profile.country || '🌍',
+        gender: profile.gender || 'Unspecified'
+      });
+      
+      localStorage.setItem('ludo_player_name', profile.displayName);
+      setActiveModal(null); // CLOSE THE MODAL ON SAVE
+    } catch (e) {
+      setAlertMsg(`Failed to save profile: ${e.message}`);
     }
   };
 
@@ -392,20 +449,15 @@ function App() {
     }
   }, [gameState?.currentPlayer, gameState?.currentRoll, gameState?.isAnimating, gameState?.botRolling]);
 
+  // Added handleImageUpload and saveProfile to the gameActions
   const uiState = { user, profile, activeModal, leaderboard, alertMsg, pendingInvite, friendCodeInput, roomCode, joinInput, playerSelect, gameState, isChatOpen, chatMode, chatMsg, bgmVolume, isMusicMuted, isSfxMuted, isHost };
   const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
-  const gameActions = { loginWithGoogle, loginAsGuest, linkGoogleAccount, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
+  const gameActions = { loginWithGoogle, loginAsGuest, linkGoogleAccount, handleImageUpload, saveProfile, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
-  // 1. App Loads -> Show Splash Screen (Which asks for name first)
   if (showSplash) return <SplashScreen onComplete={handleSplashComplete} />;
-  
-  // 2. Fallback Login Screen (Only if they explicitly log out)
   if (!user) return <LoginScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
-  
-  // 3. Home Screen (User drops straight in here after intro!)
   if (!roomCode) return <HomeScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   
-  // 4. Game Lobby & Match
   const players = gameState?.players || {};
   if (!Object.values(players).every(p => p.name !== "Waiting...")) return <LobbyScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   
