@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
 import { ref, onValue, update, push, set, get } from "firebase/database";
-import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
+import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
@@ -133,12 +133,7 @@ function App() {
 
   useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
 
-  // Handle Auth with Redirect Catch for Mobile
   useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      console.error("Redirect login error:", error);
-    });
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -167,38 +162,36 @@ function App() {
 
   const loginWithGoogle = async () => {
     try { 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider); 
-      }
-    } catch (e) { console.error(e); setAlertMsg("Google Login Failed."); }
+      // Force popup method to guarantee cross-device consistency without page refresh drops
+      await signInWithPopup(auth, googleProvider); 
+    } catch (e) { 
+      console.error(e); 
+      setAlertMsg(`Google Login Error: ${e.message}`); 
+    }
   };
 
   const loginAsGuest = async () => {
-    try { await signInAnonymously(auth); }
-    catch (e) { setAlertMsg("Failed to sign in as guest. Please try again."); }
+    try { 
+      await signInAnonymously(auth); 
+    } catch (e) { 
+      console.error(e); 
+      setAlertMsg(`Guest Login Error: ${e.message} (Did you enable Anonymous Auth in Firebase?)`); 
+    }
   };
 
   const linkGoogleAccount = async () => {
     try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        await linkWithRedirect(auth.currentUser, googleProvider);
-      } else {
-        const result = await linkWithPopup(auth.currentUser, googleProvider);
-        const linkedUser = result.user;
-        const updates = {
-          displayName: linkedUser.displayName || profile.displayName,
-          photoURL: linkedUser.photoURL || profile.photoURL
-        };
-        await update(ref(db, `users/${linkedUser.uid}`), updates);
-        setProfile({...profile, ...updates});
-        setAlertMsg("Account successfully secured with Google!");
-      }
+      const result = await linkWithPopup(auth.currentUser, googleProvider);
+      const linkedUser = result.user;
+      const updates = {
+        displayName: linkedUser.displayName || profile.displayName,
+        photoURL: linkedUser.photoURL || profile.photoURL
+      };
+      await update(ref(db, `users/${linkedUser.uid}`), updates);
+      setProfile({...profile, ...updates});
+      setAlertMsg("Account successfully secured with Google!");
     } catch (e) {
-      setAlertMsg("Failed to link account. It might already be in use.");
+      setAlertMsg(`Failed to link account: ${e.message}`);
     }
   };
 
@@ -829,7 +822,7 @@ function App() {
         {activeModal === 'leaderboard' && (
           <div className="modal-overlay">
             <div className="modal-content leaderboard-modal">
-              <h2>🏆 Top Players</h2>
+              <h2>🏆 Top 50 Players</h2>
               <div className="leaderboard-list">
                 {leaderboard.map((u, i) => (
                   <div key={i} className={`lb-item ${u.displayName === profile?.displayName ? 'is-me' : ''}`}>
@@ -854,7 +847,7 @@ function App() {
                 <input type="range" min="0" max="1" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(parseFloat(e.target.value))} />
               </div>
               <div className="settings-row">
-                <span>Mute Music</span>
+                <span>Mute Music completely</span>
                 <button className={`toggle-btn ${isMusicMuted ? 'off' : 'on'}`} onClick={() => setIsMusicMuted(!isMusicMuted)}>
                   {isMusicMuted ? 'Muted' : 'Playing'}
                 </button>
@@ -963,7 +956,6 @@ function App() {
           </div>
         )}
 
-        {/* IN-GAME SETTINGS MODAL */}
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
