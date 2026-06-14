@@ -4,7 +4,7 @@
 .splash-screen {
   position: fixed;
   top: 0; left: 0; 
-  width: 100vw; height: 100vh;
+  width: 100vw; height: 100dvh;
   background: #000833;
   display: flex;
   justify-content: center;
@@ -12,11 +12,13 @@
   z-index: 100000;
 }
 .splash-video {
-  width: 100%; height: 100%; 
-  object-fit: cover; 
+  max-width: 85%; 
+  max-height: 85%; 
+  object-fit: contain; 
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(0, 85, 255, 0.4); 
 }
 
-/* Radiant Background matching the Icon */
 body {
   background-color: #001155;
 }
@@ -26,7 +28,6 @@ body {
   overflow: hidden;
 }
 
-/* Animated Light Rays in Background */
 .login-screen::before, .home-container::before {
   content: '';
   position: absolute;
@@ -40,7 +41,6 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Colorful "Let's LUDO" Title matched to the Icon */
 .ludo-title {
   font-family: 'Impact', sans-serif;
   font-size: 85px;
@@ -56,7 +56,7 @@ body {
   display: block;
   text-shadow: 0 4px 10px rgba(0,0,0,0.8);
   margin-bottom: -15px;
-  transform: rotate(-5deg); /* Match the jaunty angle in the icon */
+  transform: rotate(-5deg);
 }
 .ludo-title .l-r { color: #ef4444; text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff, 0 0 20px #ef4444; }
 .ludo-title .l-u { color: #fbbf24; text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff, 0 0 20px #fbbf24; }
