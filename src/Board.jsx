@@ -1,6 +1,42 @@
+import React, { useState, useEffect } from 'react';
 import './App.css';
+import { TURN_ORDER } from './constants';
 
-function Board({ tokens, onTokenClick, currentPlayer, validMoves, attackingToken }) {
+function PlayerCorner({ color, player, boardRotation, chatList }) {
+  const [chatMsg, setChatMsg] = useState(null);
+
+  useEffect(() => {
+    if (!chatList || !player) return;
+    const latest = chatList.slice().reverse().find(m => m.sender === player.name);
+    if (latest && Date.now() - latest.timestamp < 5000) {
+      setChatMsg(latest);
+      const timer = setTimeout(() => setChatMsg(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [chatList, player]);
+
+  if (!player || player.name === "Waiting...") return null;
+
+  let cornerStyle = {};
+  if (color === 'red') cornerStyle = { top: 15, left: 15 };
+  if (color === 'green') cornerStyle = { top: 15, right: 15 };
+  if (color === 'blue') cornerStyle = { bottom: 15, left: 15 };
+  if (color === 'yellow') cornerStyle = { bottom: 15, right: 15 };
+
+  return (
+    <div className={`board-profile ${color}`} style={{...cornerStyle, transform: `rotate(${-boardRotation}deg)`}}>
+       <img src={player.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} />
+       <div className="bp-name">{player.name.split(' ')[0]}</div>
+       {chatMsg && (
+         <div className="bp-chat-bubble">
+           {chatMsg.type === 'emoji' ? chatMsg.text : (chatMsg.type === 'voice' ? '🔊 ' + chatMsg.text : chatMsg.text)}
+         </div>
+       )}
+    </div>
+  );
+}
+
+function Board({ tokens, onTokenClick, currentPlayer, validMoves, attackingToken, boardRotation = 0, players = {}, chatList = [] }) {
   const totalCells = 225;
   const cells = Array.from({ length: totalCells });
 
@@ -98,12 +134,15 @@ function Board({ tokens, onTokenClick, currentPlayer, validMoves, attackingToken
   };
 
   return (
-    <div className="board">
+    <div className="board" style={{ position: 'relative', transform: `rotate(${boardRotation}deg)`, '--board-rot': `${-boardRotation}deg` }}>
+      
+      {TURN_ORDER.map(color => (
+        <PlayerCorner key={color} color={color} player={players[color]} boardRotation={boardRotation} chatList={chatList} />
+      ))}
+
       {cells.map((_, index) => {
         const { className, content } = getCellData(index);
         const tokensHere = getTokensInCell(index);
-        
-        // Determine if THIS specific cell contains the attacking monster
         const cellHasMonster = tokensHere.some(t => attackingToken?.color === t.color && attackingToken?.index === t.tokenIndex);
 
         return (
