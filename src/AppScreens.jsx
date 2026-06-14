@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Board from './Board';
 import Dice from './Dice';
 import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModal, SettingsModal } from './Modals';
@@ -12,15 +12,13 @@ export const SplashScreen = ({ onComplete }) => {
     setHasTapped(true);
     
     if (videoRef.current) {
-      // Force volume up and play immediately on the trusted click
       videoRef.current.volume = 1.0; 
       const playPromise = videoRef.current.play();
       
-      // Handle strict browser blocking gracefully
       if (playPromise !== undefined) {
         playPromise.catch(error => {
           console.error("Browser strictly blocked the video:", error);
-          onComplete(); // Skip to game so the screen doesn't freeze
+          onComplete(); 
         });
       }
     }
@@ -28,8 +26,6 @@ export const SplashScreen = ({ onComplete }) => {
 
   return (
     <div className="splash-screen">
-      
-      {/* We moved the onClick DIRECTLY to the overlay so the browser trusts it more */}
       {!hasTapped && (
         <div className="splash-play-overlay" onClick={handleStart}>
           <div className="play-pulse-btn">Tap to Start Let's Ludo</div>
@@ -40,7 +36,7 @@ export const SplashScreen = ({ onComplete }) => {
         ref={videoRef}
         src="/lets-ludo.mp4" 
         playsInline 
-        preload="auto" /* Forces the browser to load the video immediately */
+        preload="auto" 
         className={`splash-video ${hasTapped ? 'playing' : 'hidden'}`}
         onEnded={() => {
           setTimeout(onComplete, 500);
@@ -53,6 +49,7 @@ export const SplashScreen = ({ onComplete }) => {
     </div>
   );
 };
+
 export const LoginScreen = ({ uiState, uiActions, gameActions }) => (
   <div className="login-screen">
     <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
