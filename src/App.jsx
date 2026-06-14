@@ -213,17 +213,19 @@ function App() {
           await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[(safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length], currentRoll: 0, consecutiveSixes: 0, isAnimating: false });
         }, 800); return; 
       }
+      
       await update(ref(db, `rooms/${roomCode}`), { currentRoll: value, botRolling: false, consecutiveSixes: newSixes });
       const tokensObj = normalizeTokens(state?.tokens); const playableTokens = getValidMoves(value, tokensObj, state?.currentPlayer);
       
       if (playableTokens.length === 0) {
+         // Auto-skip turn if NO moves exist.
          setTimeout(async () => { 
            const safeColors = stateRef.current?.activeColors || ['red'];
            await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[(safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length], currentRoll: 0, consecutiveSixes: 0 });
          }, 500); 
-      } else if ([...new Set(playableTokens)].length === 1 && !activePlayer?.isBot) {
-         setTimeout(() => { handleTokenClick(state.currentPlayer, [...new Set(playableTokens)][0], tokensObj[state.currentPlayer].findIndex(p => p === [...new Set(playableTokens)][0])); }, 300); 
       }
+      // I COMPLETELY REMOVED THE AUTO-MOVE BUG HERE. 
+      // You will no longer experience "phantom skips" when you have exactly 1 move!
     } catch (error) {}
   };
 
