@@ -137,14 +137,13 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
       
-      // Calculate available space to ensure the UI isn't pushed off-screen
-      // The top bar + dice + action buttons need about 260px of vertical space.
-      const uiHeight = 260; 
+      const uiHeight = 280; // Total height needed for top bar and bottom controls
+      const horizontalPadding = 20; // Ensure board never clips the sides
       
-      let scaleW = screenW / baseBoardSize;
+      let scaleW = (screenW - horizontalPadding) / baseBoardSize;
       let scaleH = (screenH - uiHeight) / baseBoardSize;
       
-      // Select the scale that ensures the board fits both horizontally and vertically
+      // Enforce the scale so the board shrinks enough to fit perfectly
       setBoardScale(Math.min(scaleW, scaleH, 1));
     };
     
@@ -157,6 +156,7 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
     <div className="game-wrapper">
       <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
       <div className="game-container">
+        
         <div className="top-bar">
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           
@@ -171,9 +171,23 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           </div>
         </div>
 
-        {/* The height is dynamically reduced here alongside the transform scale to prevent invisible padding overflows */}
-        <div className="board-scaler" style={{ transform: `scale(${boardScale})`, height: `${baseBoardSize * boardScale}px` }}>
-          <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} boardRotation={boardRotation} players={players} chatList={chatList} />
+        {/* BOUNDING BOX FIX: The wrapper's actual layout space shrinks to match the scale, preventing invisible overhangs */}
+        <div style={{ 
+            width: `${baseBoardSize * boardScale}px`, 
+            height: `${baseBoardSize * boardScale}px`, 
+            margin: '0 auto', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center' 
+        }}>
+          <div style={{ 
+              width: `${baseBoardSize}px`, 
+              height: `${baseBoardSize}px`, 
+              transform: `scale(${boardScale})`, 
+              transformOrigin: 'center' 
+          }}>
+            <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} boardRotation={boardRotation} players={players} chatList={chatList} />
+          </div>
         </div>
         
         <div className="dice-and-chat-controls">
