@@ -5,45 +5,73 @@ import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModa
 import { TURN_ORDER, VOICE_PRESETS, EMOJIS, normalizeTokens } from './constants';
 
 export const SplashScreen = ({ onComplete }) => {
-  const [hasTapped, setHasTapped] = useState(false);
+  const [step, setStep] = useState('input'); 
+  const [name, setName] = useState(localStorage.getItem('ludo_player_name') || '');
   const videoRef = useRef(null);
 
-  const handleStart = () => {
-    setHasTapped(true);
-    
-    if (videoRef.current) {
-      videoRef.current.volume = 1.0; 
-      const playPromise = videoRef.current.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error("Browser strictly blocked the video:", error);
-          onComplete(); 
-        });
-      }
-    }
+  const handleStart = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    // Step 1 done (Interaction registered!). Move to Step 2: Play the video.
+    setStep('video');
   };
 
+  useEffect(() => {
+    // When step changes to 'video', play it with 100% volume
+    if (step === 'video' && videoRef.current) {
+      videoRef.current.volume = 1.0;
+      videoRef.current.play().catch(e => {
+        console.error("Browser blocked video playback:", e);
+        onComplete(name); // Failsafe
+      });
+    }
+  }, [step, name, onComplete]);
+
+  // UI STEP 1: Ask for Name
+  if (step === 'input') {
+    return (
+      <div className="login-screen">
+        <div className="login-card" style={{zIndex: 10}}>
+          <h1 className="ludo-title animated-title" style={{marginBottom: '20px'}}>
+            <span className="lets-text">Welcome to</span>
+            <span className="l-r">L</span><span className="l-u">U</span><span className="l-d">D</span><span className="l-o">O</span>
+          </h1>
+          <p className="login-subtitle">Enter your name to start playing!</p>
+          <form onSubmit={handleStart} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+            <input 
+              className="modal-input" 
+              placeholder="Your Name..." 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              maxLength={15}
+              required
+              autoFocus
+              style={{textAlign: 'center', fontSize: '20px', fontWeight: 'bold'}}
+            />
+            <button type="submit" className="btn btn-primary" style={{width: '100%', fontSize: '16px', padding: '15px'}}>
+              ▶ PLAY INTRO & START
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // UI STEP 2: The Awesome Animation
   return (
     <div className="splash-screen">
-      {!hasTapped && (
-        <div className="splash-play-overlay" onClick={handleStart}>
-          <div className="play-pulse-btn">Tap to Start Let's Ludo</div>
-        </div>
-      )}
-
       <video 
         ref={videoRef}
         src="/lets-ludo.mp4" 
         playsInline 
-        preload="auto" 
-        className={`splash-video ${hasTapped ? 'playing' : 'hidden'}`}
+        preload="auto"
+        className="splash-video"
         onEnded={() => {
-          setTimeout(onComplete, 500);
+          setTimeout(() => onComplete(name), 500);
         }}
         onError={(e) => {
-          console.error("ERROR: Cannot find lets-ludo.mp4! Is it in the 'public' folder?", e);
-          onComplete();
+          console.error("ERROR: Cannot find lets-ludo.mp4!", e);
+          onComplete(name);
         }}
       />
     </div>
@@ -58,7 +86,7 @@ export const LoginScreen = ({ uiState, uiActions, gameActions }) => (
         <span className="lets-text">Let's</span>
         <span className="l-r">L</span><span className="l-u">U</span><span className="l-d">D</span><span className="l-o">O</span>
       </h1>
-      <p className="login-subtitle">Connect and claim your 1000 🪙 bonus!</p>
+      <p className="login-subtitle">Log in to link your progress across devices.</p>
       <div className="login-actions">
         <button className="btn-google" onClick={gameActions.loginWithGoogle}><img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Sign in with Google</button>
         <button className="btn-guest" onClick={gameActions.loginAsGuest}>👤 Play as Guest</button>
