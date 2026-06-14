@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
-import { ref, onValue, update, push, set, get, query, orderByChild, equalTo, limitToLast, remove } from "firebase/database";
-import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup } from "firebase/auth";
+import { ref, onValue, update, push, set, get } from "firebase/database";
+import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
@@ -55,12 +55,27 @@ const BASE_POSITIONS = { red: [16, 19, 61, 64], green: [25, 28, 70, 73], blue: [
 const TURN_ORDER = ['red', 'green', 'yellow', 'blue'];
 const SAFE_SPOTS = [36, 102, 122, 188, 91, 23, 133, 201];
 const MASTER_PATH = [ 91, 92, 93, 94, 95, 81, 66, 51, 36, 21, 6, 7, 8, 23, 38, 53, 68, 83, 99, 100, 101, 102, 103, 104, 119, 134, 133, 132, 131, 130, 129, 143, 158, 173, 188, 203, 218, 217, 216, 201, 186, 171, 156, 141, 125, 124, 123, 122, 121, 120, 105, 90 ];
-const PATHS = { red: [...MASTER_PATH.slice(0, 51), 106, 107, 108, 109, 110, 999], green: [...MASTER_PATH.slice(13, 52), ...MASTER_PATH.slice(0, 12), 22, 37, 52, 67, 82, 999], yellow: [...MASTER_PATH.slice(26, 52), ...MASTER_PATH.slice(0, 25), 118, 117, 116, 115, 114, 999], blue: [...MASTER_PATH.slice(39, 52), ...MASTER_PATH.slice(0, 38), 202, 187, 172, 157, 142, 999] };
+const PATHS = {
+  red: [...MASTER_PATH.slice(0, 51), 106, 107, 108, 109, 110, 999],
+  green: [...MASTER_PATH.slice(13, 52), ...MASTER_PATH.slice(0, 12), 22, 37, 52, 67, 82, 999],
+  yellow: [...MASTER_PATH.slice(26, 52), ...MASTER_PATH.slice(0, 25), 118, 117, 116, 115, 114, 999],
+  blue: [...MASTER_PATH.slice(39, 52), ...MASTER_PATH.slice(0, 38), 202, 187, 172, 157, 142, 999]
+};
 
-const VOICE_PRESETS = [ { id: 'ab-dekhna-m', label: 'Ab Dekhna', gender: 'm' }, { id: 'agli-baar-kismat-sath-degi-m', label: 'Agli Baar Kismat', gender: 'm' }, { id: 'amazing-m', label: 'Amazing', gender: 'm' }, { id: 'arey-baap-re-f', label: 'Arey Baap Re', gender: 'f' }, { id: 'arey-nahi-m', label: 'Arey Nahi', gender: 'm' }, { id: 'arey-wah-aaj-toh-f', label: 'Arey Wah Aaj Toh', gender: 'f' }, { id: 'arey-yr-meri-f', label: 'Arey Yaar Meri', gender: 'f' }, { id: 'aur-batao-f', label: 'Aur Batao', gender: 'f' }, { id: 'bach-gaye-m', label: 'Bach Gaye', gender: 'm' }, { id: 'badhiya-chal-m', label: 'Badhiya Chal', gender: 'm' }, { id: 'better-luck-next-time-m', label: 'Better Luck Next Time', gender: 'm' }, { id: 'bohot-badhiya-khela-m', label: 'Bohot Badhiya Khela', gender: 'm' }, { id: 'Good-Luck-m', label: 'Good Luck', gender: 'm' }, { id: 'haha-ye-chaal-toh-f', label: 'Haha Ye Chaal', gender: 'f' }, { id: 'himmat-hai-toh-hara-f', label: 'Himmat Hai Toh Hara', gender: 'f' }, { id: 'hurry-up-m', label: 'Hurry Up', gender: 'm' }, { id: 'jaldi-karo-m', label: 'Jaldi Karo', gender: 'm' }, { id: 'koi-baat-nhi-f', label: 'Koi Baat Nahi', gender: 'f' }, { id: 'koi-baat-nhi-m', label: 'Koi Baat Nahi', gender: 'm' }, { id: 'lets-play-again-m', label: 'Lets Play Again', gender: 'm' }, { id: 'mujhe-harana-itna-f', label: 'Mujhe Harana Itna', gender: 'f' }, { id: 'Nice-move-m', label: 'Nice Move', gender: 'm' }, { id: 'ohho-m', label: 'Ohho', gender: 'm' }, { id: 'oops-m', label: 'Oops', gender: 'm' }, { id: 'pakad-liya-m', label: 'Pakad Liya', gender: 'm' }, { id: 'sambhal-ke-f', label: 'Sambhal Ke', gender: 'f' }, { id: 'soch-lo-f', label: 'Soch Lo', gender: 'f' }, { id: 'subhkamnaye-m', label: 'Subhkamnaye', gender: 'm' }, { id: 'thank-you-m', label: 'Thank You', gender: 'm' }, { id: 'well-played-m', label: 'Well Played', gender: 'm' }, { id: 'yeh-toh-sarasar-f', label: 'Yeh Toh Sarasar', gender: 'f' }, { id: 'your-turn-m', label: 'Your Turn', gender: 'm' } ];
+const VOICE_PRESETS = [
+  { id: 'ab-dekhna-m', label: 'Ab Dekhna', gender: 'm' }, { id: 'agli-baar-kismat-sath-degi-m', label: 'Agli Baar Kismat', gender: 'm' }, { id: 'amazing-m', label: 'Amazing', gender: 'm' }, { id: 'arey-baap-re-f', label: 'Arey Baap Re', gender: 'f' }, { id: 'arey-nahi-m', label: 'Arey Nahi', gender: 'm' }, { id: 'arey-wah-aaj-toh-f', label: 'Arey Wah Aaj Toh', gender: 'f' }, { id: 'arey-yr-meri-f', label: 'Arey Yaar Meri', gender: 'f' }, { id: 'aur-batao-f', label: 'Aur Batao', gender: 'f' }, { id: 'bach-gaye-m', label: 'Bach Gaye', gender: 'm' }, { id: 'badhiya-chal-m', label: 'Badhiya Chal', gender: 'm' }, { id: 'better-luck-next-time-m', label: 'Better Luck Next Time', gender: 'm' }, { id: 'bohot-badhiya-khela-m', label: 'Bohot Badhiya Khela', gender: 'm' }, { id: 'Good-Luck-m', label: 'Good Luck', gender: 'm' }, { id: 'haha-ye-chaal-toh-f', label: 'Haha Ye Chaal', gender: 'f' }, { id: 'himmat-hai-toh-hara-f', label: 'Himmat Hai Toh Hara', gender: 'f' }, { id: 'hurry-up-m', label: 'Hurry Up', gender: 'm' }, { id: 'jaldi-karo-m', label: 'Jaldi Karo', gender: 'm' }, { id: 'koi-baat-nhi-f', label: 'Koi Baat Nahi', gender: 'f' }, { id: 'koi-baat-nhi-m', label: 'Koi Baat Nahi', gender: 'm' }, { id: 'lets-play-again-m', label: 'Lets Play Again', gender: 'm' }, { id: 'mujhe-harana-itna-f', label: 'Mujhe Harana Itna', gender: 'f' }, { id: 'Nice-move-m', label: 'Nice Move', gender: 'm' }, { id: 'ohho-m', label: 'Ohho', gender: 'm' }, { id: 'oops-m', label: 'Oops', gender: 'm' }, { id: 'pakad-liya-m', label: 'Pakad Liya', gender: 'm' }, { id: 'sambhal-ke-f', label: 'Sambhal Ke', gender: 'f' }, { id: 'soch-lo-f', label: 'Soch Lo', gender: 'f' }, { id: 'subhkamnaye-m', label: 'Subhkamnaye', gender: 'm' }, { id: 'thank-you-m', label: 'Thank You', gender: 'm' }, { id: 'well-played-m', label: 'Well Played', gender: 'm' }, { id: 'yeh-toh-sarasar-f', label: 'Yeh Toh Sarasar', gender: 'f' }, { id: 'your-turn-m', label: 'Your Turn', gender: 'm' }
+];
+
 const EMOJIS = ['😂', '😎', '😡', '😭', '👍', '👎', '🎲', '🔥', '🎉', '😱', '🤫', '🤦‍♂️', '😈', '💀', '✌️', '💪'];
+
 const COUNTRIES = [ { flag: '🌍', name: 'Global' }, { flag: '🇮🇳', name: 'India' }, { flag: '🇺🇸', name: 'USA' }, { flag: '🇬🇧', name: 'UK' }, { flag: '🇨🇦', name: 'Canada' }, { flag: '🇦🇺', name: 'Australia' }, { flag: '🇵🇰', name: 'Pakistan' }, { flag: '🇧🇩', name: 'Bangladesh' } ];
-const AVATARS = [ 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver' ];
+
+const AVATARS = [
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Max', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cleo'
+];
 
 const normalizeTokens = (firebaseTokens) => {
   const norm = {};
@@ -89,7 +104,7 @@ const CustomAlert = ({ msg, onClose }) => {
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [activeModal, setActiveModal] = useState(null); // 'profile', 'leaderboard', 'host', 'settings', 'friends'
+  const [activeModal, setActiveModal] = useState(null); 
   const [leaderboard, setLeaderboard] = useState([]);
   const [alertMsg, setAlertMsg] = useState(null);
   const [pendingInvite, setPendingInvite] = useState(null);
@@ -122,6 +137,10 @@ function App() {
   useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
 
   useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect login error:", error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -129,7 +148,6 @@ function App() {
         onValue(userRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.val();
-            // Assign friend code if missing (legacy support)
             if (!data.friendCode) {
               const code = Math.random().toString(36).substring(2, 8).toUpperCase();
               update(userRef, { friendCode: code });
@@ -138,8 +156,9 @@ function App() {
             setProfile(data);
           } else {
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const isGuest = currentUser.isAnonymous;
             const newProfile = {
-              displayName: currentUser.displayName || `Player_${code}`,
+              displayName: currentUser.displayName || (isGuest ? `Guest_${Math.floor(Math.random()*1000)}` : 'Player'),
               photoURL: currentUser.photoURL || AVATARS[0],
               coins: 1000,
               gender: 'Unspecified',
@@ -154,7 +173,6 @@ function App() {
           }
         });
 
-        // Listen for invites
         const inviteRef = ref(db, `users/${currentUser.uid}/invite`);
         onValue(inviteRef, (snap) => {
           if(snap.exists()) setPendingInvite(snap.val());
@@ -166,10 +184,20 @@ function App() {
   }, []);
 
   const loginWithGoogle = async () => {
-    try { await signInWithPopup(auth, googleProvider); } 
-    catch (e) { 
+    try { 
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider); 
+      }
+    } catch (e) { 
       console.error(e); 
-      setAlertMsg(`Google Login Failed: ${e.message} \n\n(Make sure your Netlify Domain is added to Firebase Authorized Domains!)`); 
+      if (e.code === 'auth/unauthorized-domain') {
+        setAlertMsg("Firebase Auth Blocked: You must deploy this to Netlify first! Local network IPs (192.168.x.x) are not allowed by Google Login.");
+      } else {
+        setAlertMsg(`Google Login Error: ${e.message}`); 
+      }
     }
   };
 
@@ -180,12 +208,23 @@ function App() {
 
   const linkGoogleAccount = async () => {
     try {
-      const result = await linkWithPopup(auth.currentUser, googleProvider);
-      const updates = { displayName: result.user.displayName, photoURL: result.user.photoURL };
-      await update(ref(db, `users/${result.user.uid}`), updates);
-      setProfile({...profile, ...updates});
-      setAlertMsg("Account securely linked with Google!");
-    } catch (e) { setAlertMsg(`Link Failed: ${e.message}`); }
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
+        await linkWithRedirect(auth.currentUser, googleProvider);
+      } else {
+        const result = await linkWithPopup(auth.currentUser, googleProvider);
+        const linkedUser = result.user;
+        const updates = {
+          displayName: linkedUser.displayName || profile.displayName,
+          photoURL: linkedUser.photoURL || profile.photoURL
+        };
+        await update(ref(db, `users/${linkedUser.uid}`), updates);
+        setProfile({...profile, ...updates});
+        setAlertMsg("Account successfully secured with Google!");
+      }
+    } catch (e) {
+      setAlertMsg(`Failed to link account: ${e.message}`);
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -207,19 +246,24 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  const addFriend = async () => {
-    if(!friendCodeInput.trim() || friendCodeInput === profile.friendCode) return setAlertMsg("Invalid friend code.");
-    const q = query(ref(db, 'users'), orderByChild('friendCode'), equalTo(friendCodeInput.trim().toUpperCase()));
-    const snap = await get(q);
-    if(snap.exists()) {
-      const friendUid = Object.keys(snap.val())[0];
-      const fData = snap.val()[friendUid];
-      await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: fData.displayName, photoURL: fData.photoURL });
-      setAlertMsg(`${fData.displayName} added to friends!`);
-      setFriendCodeInput("");
-    } else {
-      setAlertMsg("Player not found!");
+  const fetchLeaderboard = async () => {
+    const usersRef = ref(db, 'users');
+    const snapshot = await get(usersRef);
+    if (snapshot.exists()) {
+      const usersObj = snapshot.val();
+      // Inject uid into each object before sorting to allow friend adding
+      const usersArray = Object.entries(usersObj)
+        .map(([uid, data]) => ({ ...data, uid }))
+        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .slice(0, 50); 
+      setLeaderboard(usersArray);
     }
+  };
+
+  const addFriendDirectly = async (friendUid, friendName, friendPhoto) => {
+    if (friendUid === user.uid) return setAlertMsg("You can't add yourself!");
+    await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: friendName, photoURL: friendPhoto });
+    setAlertMsg(`${friendName} added to friends!`);
   };
 
   const inviteFriend = (friendUid) => {
@@ -236,26 +280,6 @@ function App() {
     }
   };
 
-  const fetchLeaderboard = async () => {
-    const usersRef = ref(db, 'users');
-    const snapshot = await get(usersRef);
-    if (snapshot.exists()) {
-      const usersObj = snapshot.val();
-      // Inject uid into each object before sorting
-      const usersArray = Object.entries(usersObj)
-        .map(([uid, data]) => ({ ...data, uid }))
-        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
-        .slice(0, 50); 
-      setLeaderboard(usersArray);
-    }
-  };
-
-  // ADD THIS FUNCTION right below fetchLeaderboard:
-  const addFriendDirectly = async (friendUid, friendName, friendPhoto) => {
-    if (friendUid === user.uid) return setAlertMsg("You can't add yourself!");
-    await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: friendName, photoURL: friendPhoto });
-    setAlertMsg(`${friendName} added to friends!`);
-  };
   useEffect(() => {
     if (gameState?.winner && roomCode && profile && user) {
       const myPlayer = Object.entries(gameState.players || {}).find(([_, p]) => p.uid === user.uid);
@@ -797,6 +821,12 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content profile-modal-content">
               <h2>Player Profile</h2>
+              
+              <div style={{background:'rgba(255,255,255,0.05)', padding:'10px', borderRadius:'10px', width:'100%', marginBottom:'15px', textAlign: 'center'}}>
+                <p style={{margin:0, color:'#94a3b8', fontSize:'12px'}}>Your Friend Code:</p>
+                <h3 style={{margin:'5px 0', color: '#fbbf24', letterSpacing:'2px'}}>{profile?.friendCode}</h3>
+              </div>
+
               <div className="avatar-selection-area">
                 <img src={profile?.photoURL} alt="Profile" className="profile-large" />
                 
@@ -811,10 +841,7 @@ function App() {
                   ))}
                 </div>
               </div>
-              <div style={{background:'rgba(255,255,255,0.05)', padding:'10px', borderRadius:'10px', width:'100%', marginBottom:'15px', textAlign: 'center'}}>
-                <p style={{margin:0, color:'#94a3b8', fontSize:'12px'}}>Your Friend Code:</p>
-                <h3 style={{margin:'5px 0', color: '#fbbf24', letterSpacing:'2px'}}>{profile?.friendCode}</h3>
-              </div>
+              
               <label>Nickname:</label>
               <input className="modal-input" value={profile?.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} />
               
@@ -848,7 +875,10 @@ function App() {
         )}
 
         {activeModal === 'leaderboard' && (
-         <div className="leaderboard-list">
+          <div className="modal-overlay">
+            <div className="modal-content leaderboard-modal">
+              <h2>🏆 Top 50 Players</h2>
+              <div className="leaderboard-list">
                 {leaderboard.map((u, i) => {
                   const isMe = u.uid === user?.uid;
                   return (
@@ -867,6 +897,11 @@ function App() {
                   </div>
                 )})}
               </div>
+              <button className="btn-close" onClick={() => setActiveModal(null)}>Close</button>
+            </div>
+          </div>
+        )}
+
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -963,7 +998,7 @@ function App() {
       <div className="game-container">
         
         {/* TOP BAR - Hidden Room Code during active game */}
-        <div className="top-bar">
+        <div className="top-bar" style={{justifyContent: 'flex-end'}}>
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           <button className="settings-icon-btn" onClick={() => setActiveModal('settings')}>⚙️</button>
         </div>
@@ -1006,6 +1041,7 @@ function App() {
           </div>
         )}
 
+        {/* IN-GAME SETTINGS MODAL */}
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
