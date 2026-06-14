@@ -14,22 +14,19 @@
 }
 
 .top-bar { 
-  display: flex; gap: 15px; align-items: center; width: 100%; justify-content: space-between; 
-  padding: 0 15px; margin-bottom: 10px;
+  display: flex; gap: 10px; align-items: center; width: 100%; 
+  justify-content: center; flex-wrap: wrap; /* Allows wrapping on tiny screens */
+  padding: 0 10px; margin-bottom: 10px;
 }
 .pot-display { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.3); color: white; box-shadow: 0 0 15px rgba(251,191,36,0.1); padding: 10px 20px; border-radius: 16px; font-size: 15px; font-weight: 700; border: 1px solid rgba(251,191,36,0.3); }
 .pot-display strong { color: #fbbf24; font-size: 20px; margin-left: 8px;}
 .settings-icon-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; width: 48px; height: 48px; font-size: 22px; cursor: pointer; transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .settings-icon-btn:hover { background: rgba(255,255,255,0.15); transform: rotate(10deg) scale(1.1); }
 
-.board-scaler { 
-  transform-origin: top center; 
-  display: flex; justify-content: center; width: 100%; 
-}
 
 .dice-and-chat-controls { 
   display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 10; 
-  padding: 0 15px; 
+  padding: 0 15px; margin-top: 10px;
 }
 .btn-chat-toggle { background: linear-gradient(135deg, #38bdf8, #0284c7); border: 1px solid #7dd3fc; color: white; box-shadow: 0 6px 20px rgba(2,132,199,0.3); }
 
@@ -39,12 +36,8 @@
 }
 .action-buttons .btn { flex: 1; padding: 18px 0; margin: 0; font-size: 15px; }
 
-@media (max-width: 600px) {
-  .top-bar { padding: 0 10px; } 
-  .action-buttons .btn { padding: 15px 0; }
-}
+
 @media (max-width: 500px) {
-  .top-bar { justify-content: space-between;}
   .real-dice { width: 50px !important; height: 50px !important; font-size: 26px; border-radius: 12px !important;}
   .dot { width: 10px !important; height: 10px !important; }
 }
@@ -52,7 +45,6 @@
   .ludo-title { font-size: 55px; }
   .btn-huge { font-size: 16px; padding: 18px; border-radius: 16px;}
   .action-buttons .btn { font-size: 14px; padding: 14px 0; border-radius: 14px;}
-  .top-bar { justify-content: space-between; gap: 5px;}
 }
 @media (max-width: 360px) {
   .real-dice { width: 45px !important; height: 45px !important; font-size: 24px; }
