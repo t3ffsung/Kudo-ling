@@ -144,11 +144,12 @@ function Board({ tokens, onTokenClick, currentPlayer, validMoves, attackingToken
         const { className, content } = getCellData(index);
         const tokensHere = getTokensInCell(index);
         const cellHasMonster = tokensHere.some(t => attackingToken?.color === t.color && attackingToken?.index === t.tokenIndex);
+        const hasTokens = tokensHere.length > 0;
 
         return (
-          <div key={index} className={`${className} ${cellHasMonster ? 'has-monster' : ''}`}>
+          <div key={index} className={`${className} ${cellHasMonster ? 'has-monster' : ''} ${hasTokens ? 'has-tokens' : ''}`}>
             {content}
-            {tokensHere.length > 0 && (
+            {hasTokens && (
               <div className="token-group">
                 {tokensHere.map((token, i) => {
                   const isPlayable = token.color === currentPlayer && validMoves.includes(index);
