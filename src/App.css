@@ -101,12 +101,12 @@ body {
 }
 
 /* BIG MAIN BUTTONS */
-.home-actions { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 400px; margin-bottom: 30px; z-index: 10; padding: 0 20px;}
+.home-actions { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 400px; margin-bottom: 30px; z-index: 10; padding: 0 20px;}
 .btn-huge { 
   display: flex; align-items: center; justify-content: center; gap: 10px; 
-  width: 100%; height: 50px; 
-  padding: 0 15px; border-radius: 14px; 
-  font-size: 14px; font-weight: 800; color: white; cursor: pointer; border: none; 
+  width: 100%; height: 60px; 
+  padding: 0 15px; border-radius: 18px; 
+  font-size: 16px; font-weight: 800; color: white; cursor: pointer; border: none; 
   box-shadow: 0 12px 25px rgba(0,0,0,0.6), inset 0 4px 10px rgba(255,255,255,0.25); 
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); letter-spacing: 0.5px;
 }
@@ -117,7 +117,7 @@ body {
 .btn-computer { background: linear-gradient(to bottom, #fbbf24, #b45309); border: 2px solid #fde047; color: #450a0a; text-shadow: 0 1px 2px rgba(255,255,255,0.4);}
 .btn-leaderboard { background: linear-gradient(to bottom, #a855f7, #6b21a8); border: 2px solid #d8b4fe; }
 .btn-friends { background: linear-gradient(to bottom, #f43f5e, #be123c); border: 2px solid #fda4af; }
-.btn-icon { font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.btn-icon { font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
 
 .home-bottom-nav { display: flex; justify-content: center; gap: 20px; padding-bottom: 40px; width: 100%; z-index: 10; }
 .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 12px 25px; border-radius: 15px; font-weight: 700; cursor: pointer; transition: 0.3s; backdrop-filter: blur(10px); font-size: 15px; }
@@ -223,51 +223,48 @@ body {
 /* =========================================
    6. GAME LAYOUT & FLUID MOBILE RESPONSIVENESS
 ========================================= */
+.game-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 40px; padding: 20px; background: radial-gradient(circle at top right, #1e293b, #0f172a, #000000); min-height: 100vh; flex-wrap: wrap; }
+.game-container { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 550px;}
 
-/* FIX: Height locked to 100dvh and overflow hidden to prevent all unwanted page scrolling */
-.game-wrapper { 
-  display: flex; justify-content: center; align-items: center; padding: 0; 
-  background: radial-gradient(circle at top right, #1e293b, #0f172a, #000000); 
-  height: 100dvh; width: 100vw; overflow: hidden; 
-}
-
-/* FIX: align-items changed to flex-start to move everything upward */
-.game-container { 
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
-  width: 100%; height: 100%; max-width: 550px; padding: 15px 0 0 0; 
-}
-
-.top-bar { display: flex; gap: 15px; align-items: center; margin-bottom: 10px; width: 100%; justify-content: flex-end; padding: 0 15px;}
+.top-bar { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; width: 100%; justify-content: flex-end;}
 .pot-display { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.3); color: white; box-shadow: 0 0 15px rgba(251,191,36,0.1); padding: 10px 20px; border-radius: 16px; font-size: 15px; font-weight: 700; border: 1px solid rgba(251,191,36,0.3); }
 .pot-display strong { color: #fbbf24; font-size: 20px; margin-left: 8px;}
 .settings-icon-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; width: 48px; height: 48px; font-size: 22px; cursor: pointer; transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .settings-icon-btn:hover { background: rgba(255,255,255,0.15); transform: rotate(90deg) scale(1.1); }
 
-.board-scaler { transform-origin: top center; display: flex; justify-content: center; width: 100%; margin: 5px 0; }
+/* --- FLUID MOBILE BOARD SCALING --- */
+.board-scaler { transform-origin: top center; display: flex; justify-content: center; width: 100%; margin-bottom: 10px; }
 
 .dice-and-chat-controls { display: flex; flex-direction: column; align-items: center; margin-top: 10px; width: 100%; z-index: 10; }
 .btn-chat-toggle { background: linear-gradient(135deg, #38bdf8, #0284c7); border: 1px solid #7dd3fc; color: white; box-shadow: 0 6px 20px rgba(2,132,199,0.3); }
 
-.action-buttons { display: flex; flex-direction: row; gap: 15px; margin-top: 15px; align-items: center; flex-wrap: nowrap; justify-content: center; width: 100%; max-width: 450px; padding: 0 15px; }
+/* Buttons Side-by-Side */
+.action-buttons { display: flex; flex-direction: row; gap: 15px; margin-top: 20px; align-items: center; flex-wrap: nowrap; justify-content: center; width: 100%; max-width: 450px; padding: 0 10px; }
 .action-buttons .btn { flex: 1; padding: 18px 0; margin: 0; font-size: 15px; }
 
+/* FIX: Mathematical precision scaling for mobile phones */
 @media (max-width: 600px) {
-  /* Shift board strongly to top of screen and push controls down */
-  .game-container { padding: 5px 0 15px 0; }
-  .top-bar { margin-bottom: 0px; }
-  .dice-and-chat-controls { margin-top: auto; }
+  /* Removed padding completely to force edge-to-edge rendering without side scrolling */
+  .game-wrapper { padding: 0px; gap: 5px; } 
+  .top-bar { margin-bottom: 5px; margin-top: 10px; padding-right: 15px; }
+  .action-buttons { margin-top: 5px; padding-bottom: 20px; }
   .board-scaler { 
-    transform: scale(min(1, calc(94vw / 520))); 
-    height: calc(520px * min(1, calc(94vw / 520))); 
+    /* 520 is the exact pixel width of the board including borders. 100vw ensures edge-to-edge scaling */
+    transform: scale(min(1, calc(100vw / 520))); 
+    transform-origin: top center;
+    height: calc(520px * min(1, calc(100vw / 520))); 
+    margin-bottom: 0; 
   } 
 }
 @media (max-width: 500px) {
   .top-bar { flex-wrap: wrap; justify-content: center;}
+  /* Shrink Dice to save vertical space on phones */
   .real-dice { width: 50px !important; height: 50px !important; font-size: 26px; border-radius: 12px !important;}
   .dot { width: 10px !important; height: 10px !important; }
 }
 @media (max-width: 420px) {
   .ludo-title { font-size: 55px; }
+  .btn-huge { font-size: 16px; padding: 18px; border-radius: 16px;}
   .action-buttons .btn { font-size: 14px; padding: 15px 0; border-radius: 14px;}
   .top-bar { flex-wrap: wrap; justify-content: center; gap: 10px;}
 }
@@ -310,6 +307,7 @@ body {
 .cell.slot-yellow::before { background-color: #eab308; border-color: #713f12; }
 .cell.slot-tl, .cell.slot-tr, .cell.slot-bl, .cell.slot-br { z-index: 3; }
 
+/* FIX: Changed hardcoded pixel distances to scalable percentages to prevent tokens spilling out of white circles when screen scales down */
 .cell.slot-tl::before, .cell.slot-tl .token-group { transform: translate(35%, 35%); }
 .cell.slot-tr::before, .cell.slot-tr .token-group { transform: translate(-35%, 35%); }
 .cell.slot-bl::before, .cell.slot-bl .token-group { transform: translate(35%, -35%); }
@@ -377,17 +375,17 @@ body {
 .dice-status { margin-top: 15px; font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-align: center; color: #f8fafc;}
 
 /* =========================================
-   10. CHAT OVERLAY SYSTEM 
+   10. CHAT OVERLAY SYSTEM (Fixed Spacing)
 ========================================= */
 .chat-overlay-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; pointer-events: none; z-index: 2000; display: flex; justify-content: center; align-items: flex-end; }
 
-/* FIX: height auto lets the panel pull down when empty to remove the dead gap */
+/* FIX: Removed min-height so it shrink-wraps perfectly, and dynamically padded the bottom for iOS swipe bars */
 .chat-container { 
   pointer-events: auto; width: 100%; max-width: 600px; 
-  height: auto !important; min-height: 40vh !important; max-height: 85dvh !important; 
+  height: auto !important; max-height: 85dvh !important; 
   background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-radius: 25px 25px 0 0; box-shadow: 0px -10px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.2); animation: slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
-  padding-bottom: 20px; 
+  padding-bottom: max(15px, env(safe-area-inset-bottom)); 
 }
 @keyframes slide-up { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
 
@@ -399,7 +397,7 @@ body {
 .tab-btn { flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.5); padding: 8px; cursor: pointer; font-size: 18px; transition: 0.3s; }
 .tab-btn.active { color: white; border-bottom: 3px solid #38bdf8; }
 
-.chat-messages { flex: 1 1 auto; max-height: 35vh; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: transparent; }
+.chat-messages { flex: 1 1 auto; min-height: 20vh; max-height: 40vh; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: transparent; }
 .chat-msg { background: rgba(0,0,0,0.5); padding: 10px 16px; border-radius: 16px; font-size: 14px; width: fit-content; max-width: 85%; color: #f8fafc; border: 1px solid rgba(255,255,255,0.05); font-weight: 500;}
 .chat-msg.self { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; align-self: flex-end; border: none; box-shadow: 0 4px 15px rgba(2,132,199,0.3);}
 .chat-msg.emoji-msg { background: transparent !important; border: none !important; font-size: 50px; padding: 0; box-shadow: none !important;}
@@ -409,13 +407,14 @@ body {
 .voice-bubble { cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; }
 .voice-bubble:hover { opacity: 0.8; }
 
-.chat-input-area, .chat-panel { padding: 12px 12px 35px 12px; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(255,255,255,0.1); }
+/* FIX: Standardized padding. The container shrink-wrap handles the bottom spacing naturally now */
+.chat-input-area, .chat-panel { padding: 15px; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(255,255,255,0.1); }
 .chat-input-area { display: flex; }
 .chat-input-area input { flex: 1; padding: 12px 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 25px; outline: none; transition: 0.3s; font-size: 15px;}
 .chat-input-area input:focus { border-color: #38bdf8; background: rgba(0,0,0,0.5);}
 .chat-input-area button { background: linear-gradient(135deg, #10b981, #047857); color: white; border: none; width: 45px; height: 45px; margin-left: 10px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 18px; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
 
-.voice-panel { display: flex; flex-wrap: wrap; gap: 8px; overflow-y: auto; max-height: 120px; }
+.voice-panel { display: flex; flex-wrap: wrap; gap: 8px; overflow-y: auto; max-height: 180px; justify-content: center;}
 .voice-preset-btn { padding: 10px 14px; border-radius: 14px; font-size: 13px; font-weight: 800; cursor: pointer; transition: 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .voice-preset-btn.male { background: rgba(14, 165, 233, 0.2) !important; color: #7dd3fc !important; border: 1px solid #38bdf8 !important; }
 .voice-preset-btn.female { background: rgba(236, 72, 153, 0.2) !important; color: #f9a8d4 !important; border: 1px solid #f472b6 !important; }
