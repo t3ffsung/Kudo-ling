@@ -49,7 +49,7 @@ export const SplashScreen = ({ onComplete }) => {
               style={{textAlign: 'center', fontSize: '20px', fontWeight: 'bold'}}
             />
             <button type="submit" className="btn btn-primary" style={{width: '100%', fontSize: '16px', padding: '15px'}}>
-              ▶ PLAY INTRO & START
+              ▶ Okay
             </button>
           </form>
         </div>
