@@ -87,6 +87,12 @@ function App() {
   const chatEndRef = useRef(null);
   const lastPlayedChatRef = useRef(null);
   
+  // FIX: Using a Ref for Muting cleanly bypasses any stale state captured by moving pieces or bots.
+  const isSfxMutedRef = useRef(isSfxMuted);
+  useEffect(() => {
+    isSfxMutedRef.current = isSfxMuted;
+  }, [isSfxMuted]);
+
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
@@ -118,7 +124,9 @@ function App() {
   }, [musicStarted]);
 
   const playSound = (type) => {
-    if (isSfxMuted) return;
+    // Uses the useRef value so it always gets the live mute toggle, even inside old timeouts
+    if (isSfxMutedRef.current) return;
+    
     try {
       if (type === 'monster') {
         sfxRefs.current.monster.play().catch(() => {});
@@ -158,7 +166,7 @@ function App() {
   };
 
   const playChatVoice = (audioId) => {
-    if (isSfxMuted) return;
+    if (isSfxMutedRef.current) return;
     try {
       const audio = sfxRefs.current.chat;
       audio.src = `/${audioId}.mp3`;
@@ -346,8 +354,9 @@ function App() {
     }
   }, [gameState?.winner, roomCode, user?.uid]);
 
+  // Monster Audio Effect
   useEffect(() => {
-    if (gameState?.attackingToken && !isSfxMuted) {
+    if (gameState?.attackingToken && !isSfxMutedRef.current) {
       sfxRefs.current.monster?.play().catch(()=>{});
     } else if (sfxRefs.current.monster) { 
       sfxRefs.current.monster.pause(); 
@@ -355,6 +364,7 @@ function App() {
     }
   }, [gameState?.attackingToken, isSfxMuted]);
 
+  // BGM Effect
   useEffect(() => { 
     if (bgmRef.current) { 
       bgmRef.current.volume = bgmVolume; 
@@ -799,7 +809,6 @@ function App() {
           <button className="btn-huge btn-computer" onClick={() => createRoom(true)}>
              <span className="btn-icon">📱</span> VS COMPUTER
           </button>
-          {/* Vertical alignment fix for these buttons */}
           <button className="btn-huge btn-leaderboard" onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
              <span className="btn-icon">🏆</span> RANKINGS
           </button>
