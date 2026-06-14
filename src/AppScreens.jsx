@@ -135,11 +135,15 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   useEffect(() => {
     const handleResize = () => {
       const screenW = window.innerWidth;
-      if (screenW < 530) {
-        setBoardScale(screenW / 530);
-      } else {
-        setBoardScale(1);
-      }
+      const screenH = window.innerHeight;
+      
+      // Scale by width to fit mobile screens
+      let scaleW = screenW < 530 ? screenW / 530 : 1;
+      
+      // Crucial Fix: Also scale by height to ensure buttons are never pushed off-screen vertically
+      let scaleH = screenH < 750 ? (screenH - 220) / 500 : 1;
+      
+      setBoardScale(Math.min(scaleW, scaleH));
     };
     handleResize(); 
     window.addEventListener('resize', handleResize);
@@ -150,7 +154,7 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
     <div className="game-wrapper">
       <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
       <div className="game-container">
-        <div className="top-bar" style={{justifyContent: 'flex-end'}}>
+        <div className="top-bar">
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           
           <div style={{display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', alignItems: 'center'}}>
