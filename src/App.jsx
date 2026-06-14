@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
-import { ref, onValue, update, push, set, get } from "firebase/database";
-import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
+import { ref, onValue, update, push, set, get, query, orderByChild, equalTo, limitToLast, remove } from "firebase/database";
+import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
@@ -55,25 +55,12 @@ const BASE_POSITIONS = { red: [16, 19, 61, 64], green: [25, 28, 70, 73], blue: [
 const TURN_ORDER = ['red', 'green', 'yellow', 'blue'];
 const SAFE_SPOTS = [36, 102, 122, 188, 91, 23, 133, 201];
 const MASTER_PATH = [ 91, 92, 93, 94, 95, 81, 66, 51, 36, 21, 6, 7, 8, 23, 38, 53, 68, 83, 99, 100, 101, 102, 103, 104, 119, 134, 133, 132, 131, 130, 129, 143, 158, 173, 188, 203, 218, 217, 216, 201, 186, 171, 156, 141, 125, 124, 123, 122, 121, 120, 105, 90 ];
-const PATHS = {
-  red: [...MASTER_PATH.slice(0, 51), 106, 107, 108, 109, 110, 999],
-  green: [...MASTER_PATH.slice(13, 52), ...MASTER_PATH.slice(0, 12), 22, 37, 52, 67, 82, 999],
-  yellow: [...MASTER_PATH.slice(26, 52), ...MASTER_PATH.slice(0, 25), 118, 117, 116, 115, 114, 999],
-  blue: [...MASTER_PATH.slice(39, 52), ...MASTER_PATH.slice(0, 38), 202, 187, 172, 157, 142, 999]
-};
+const PATHS = { red: [...MASTER_PATH.slice(0, 51), 106, 107, 108, 109, 110, 999], green: [...MASTER_PATH.slice(13, 52), ...MASTER_PATH.slice(0, 12), 22, 37, 52, 67, 82, 999], yellow: [...MASTER_PATH.slice(26, 52), ...MASTER_PATH.slice(0, 25), 118, 117, 116, 115, 114, 999], blue: [...MASTER_PATH.slice(39, 52), ...MASTER_PATH.slice(0, 38), 202, 187, 172, 157, 142, 999] };
 
-const VOICE_PRESETS = [
-  { id: 'ab-dekhna-m', label: 'Ab Dekhna', gender: 'm' }, { id: 'agli-baar-kismat-sath-degi-m', label: 'Agli Baar Kismat', gender: 'm' }, { id: 'amazing-m', label: 'Amazing', gender: 'm' }, { id: 'arey-baap-re-f', label: 'Arey Baap Re', gender: 'f' }, { id: 'arey-nahi-m', label: 'Arey Nahi', gender: 'm' }, { id: 'arey-wah-aaj-toh-f', label: 'Arey Wah Aaj Toh', gender: 'f' }, { id: 'arey-yr-meri-f', label: 'Arey Yaar Meri', gender: 'f' }, { id: 'aur-batao-f', label: 'Aur Batao', gender: 'f' }, { id: 'bach-gaye-m', label: 'Bach Gaye', gender: 'm' }, { id: 'badhiya-chal-m', label: 'Badhiya Chal', gender: 'm' }, { id: 'better-luck-next-time-m', label: 'Better Luck Next Time', gender: 'm' }, { id: 'bohot-badhiya-khela-m', label: 'Bohot Badhiya Khela', gender: 'm' }, { id: 'Good-Luck-m', label: 'Good Luck', gender: 'm' }, { id: 'haha-ye-chaal-toh-f', label: 'Haha Ye Chaal', gender: 'f' }, { id: 'himmat-hai-toh-hara-f', label: 'Himmat Hai Toh Hara', gender: 'f' }, { id: 'hurry-up-m', label: 'Hurry Up', gender: 'm' }, { id: 'jaldi-karo-m', label: 'Jaldi Karo', gender: 'm' }, { id: 'koi-baat-nhi-f', label: 'Koi Baat Nahi', gender: 'f' }, { id: 'koi-baat-nhi-m', label: 'Koi Baat Nahi', gender: 'm' }, { id: 'lets-play-again-m', label: 'Lets Play Again', gender: 'm' }, { id: 'mujhe-harana-itna-f', label: 'Mujhe Harana Itna', gender: 'f' }, { id: 'Nice-move-m', label: 'Nice Move', gender: 'm' }, { id: 'ohho-m', label: 'Ohho', gender: 'm' }, { id: 'oops-m', label: 'Oops', gender: 'm' }, { id: 'pakad-liya-m', label: 'Pakad Liya', gender: 'm' }, { id: 'sambhal-ke-f', label: 'Sambhal Ke', gender: 'f' }, { id: 'soch-lo-f', label: 'Soch Lo', gender: 'f' }, { id: 'subhkamnaye-m', label: 'Subhkamnaye', gender: 'm' }, { id: 'thank-you-m', label: 'Thank You', gender: 'm' }, { id: 'well-played-m', label: 'Well Played', gender: 'm' }, { id: 'yeh-toh-sarasar-f', label: 'Yeh Toh Sarasar', gender: 'f' }, { id: 'your-turn-m', label: 'Your Turn', gender: 'm' }
-];
-
+const VOICE_PRESETS = [ { id: 'ab-dekhna-m', label: 'Ab Dekhna', gender: 'm' }, { id: 'agli-baar-kismat-sath-degi-m', label: 'Agli Baar Kismat', gender: 'm' }, { id: 'amazing-m', label: 'Amazing', gender: 'm' }, { id: 'arey-baap-re-f', label: 'Arey Baap Re', gender: 'f' }, { id: 'arey-nahi-m', label: 'Arey Nahi', gender: 'm' }, { id: 'arey-wah-aaj-toh-f', label: 'Arey Wah Aaj Toh', gender: 'f' }, { id: 'arey-yr-meri-f', label: 'Arey Yaar Meri', gender: 'f' }, { id: 'aur-batao-f', label: 'Aur Batao', gender: 'f' }, { id: 'bach-gaye-m', label: 'Bach Gaye', gender: 'm' }, { id: 'badhiya-chal-m', label: 'Badhiya Chal', gender: 'm' }, { id: 'better-luck-next-time-m', label: 'Better Luck Next Time', gender: 'm' }, { id: 'bohot-badhiya-khela-m', label: 'Bohot Badhiya Khela', gender: 'm' }, { id: 'Good-Luck-m', label: 'Good Luck', gender: 'm' }, { id: 'haha-ye-chaal-toh-f', label: 'Haha Ye Chaal', gender: 'f' }, { id: 'himmat-hai-toh-hara-f', label: 'Himmat Hai Toh Hara', gender: 'f' }, { id: 'hurry-up-m', label: 'Hurry Up', gender: 'm' }, { id: 'jaldi-karo-m', label: 'Jaldi Karo', gender: 'm' }, { id: 'koi-baat-nhi-f', label: 'Koi Baat Nahi', gender: 'f' }, { id: 'koi-baat-nhi-m', label: 'Koi Baat Nahi', gender: 'm' }, { id: 'lets-play-again-m', label: 'Lets Play Again', gender: 'm' }, { id: 'mujhe-harana-itna-f', label: 'Mujhe Harana Itna', gender: 'f' }, { id: 'Nice-move-m', label: 'Nice Move', gender: 'm' }, { id: 'ohho-m', label: 'Ohho', gender: 'm' }, { id: 'oops-m', label: 'Oops', gender: 'm' }, { id: 'pakad-liya-m', label: 'Pakad Liya', gender: 'm' }, { id: 'sambhal-ke-f', label: 'Sambhal Ke', gender: 'f' }, { id: 'soch-lo-f', label: 'Soch Lo', gender: 'f' }, { id: 'subhkamnaye-m', label: 'Subhkamnaye', gender: 'm' }, { id: 'thank-you-m', label: 'Thank You', gender: 'm' }, { id: 'well-played-m', label: 'Well Played', gender: 'm' }, { id: 'yeh-toh-sarasar-f', label: 'Yeh Toh Sarasar', gender: 'f' }, { id: 'your-turn-m', label: 'Your Turn', gender: 'm' } ];
 const EMOJIS = ['😂', '😎', '😡', '😭', '👍', '👎', '🎲', '🔥', '🎉', '😱', '🤫', '🤦‍♂️', '😈', '💀', '✌️', '💪'];
-
-const AVATARS = [
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Max', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cleo'
-];
+const COUNTRIES = [ { flag: '🌍', name: 'Global' }, { flag: '🇮🇳', name: 'India' }, { flag: '🇺🇸', name: 'USA' }, { flag: '🇬🇧', name: 'UK' }, { flag: '🇨🇦', name: 'Canada' }, { flag: '🇦🇺', name: 'Australia' }, { flag: '🇵🇰', name: 'Pakistan' }, { flag: '🇧🇩', name: 'Bangladesh' } ];
+const AVATARS = [ 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver' ];
 
 const normalizeTokens = (firebaseTokens) => {
   const norm = {};
@@ -89,7 +76,7 @@ const normalizeTokens = (firebaseTokens) => {
 const CustomAlert = ({ msg, onClose }) => {
   if (!msg) return null;
   return (
-    <div className="modal-overlay" style={{zIndex: 9999}}>
+    <div className="modal-overlay" style={{zIndex: 99999}}>
       <div className="custom-alert-box">
         <h3 style={{marginTop:0, color:'#fbbf24'}}>Notice</h3>
         <p>{msg}</p>
@@ -102,9 +89,11 @@ const CustomAlert = ({ msg, onClose }) => {
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [activeModal, setActiveModal] = useState(null); 
+  const [activeModal, setActiveModal] = useState(null); // 'profile', 'leaderboard', 'host', 'settings', 'friends'
   const [leaderboard, setLeaderboard] = useState([]);
   const [alertMsg, setAlertMsg] = useState(null);
+  const [pendingInvite, setPendingInvite] = useState(null);
+  const [friendCodeInput, setFriendCodeInput] = useState("");
   
   const [roomCode, setRoomCode] = useState(null);
   const [joinInput, setJoinInput] = useState("");
@@ -130,29 +119,33 @@ function App() {
   
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
-
   useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
 
-  // Handle Auth with Redirect Catch
   useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      console.error("Redirect login error:", error);
-    });
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         const userRef = ref(db, `users/${currentUser.uid}`);
         onValue(userRef, (snapshot) => {
           if (snapshot.exists()) {
-            setProfile(snapshot.val());
+            const data = snapshot.val();
+            // Assign friend code if missing (legacy support)
+            if (!data.friendCode) {
+              const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+              update(userRef, { friendCode: code });
+              data.friendCode = code;
+            }
+            setProfile(data);
           } else {
-            const isGuest = currentUser.isAnonymous;
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
             const newProfile = {
-              displayName: currentUser.displayName || (isGuest ? `Guest_${Math.floor(Math.random()*1000)}` : 'Player'),
-              photoURL: currentUser.photoURL || AVATARS[Math.floor(Math.random()*AVATARS.length)],
+              displayName: currentUser.displayName || `Player_${code}`,
+              photoURL: currentUser.photoURL || AVATARS[0],
               coins: 1000,
               gender: 'Unspecified',
+              country: '🌍',
+              friendCode: code,
+              friends: {},
               wins: 0,
               gamesPlayed: 0
             };
@@ -160,53 +153,86 @@ function App() {
             setProfile(newProfile);
           }
         });
+
+        // Listen for invites
+        const inviteRef = ref(db, `users/${currentUser.uid}/invite`);
+        onValue(inviteRef, (snap) => {
+          if(snap.exists()) setPendingInvite(snap.val());
+          else setPendingInvite(null);
+        });
       }
     });
     return () => unsubscribe();
   }, []);
 
   const loginWithGoogle = async () => {
-    try { 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      // Ensure we use redirect on mobile IF deployed, but popup on PC
-      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider); 
-      }
-    } catch (e) { 
+    try { await signInWithPopup(auth, googleProvider); } 
+    catch (e) { 
       console.error(e); 
-      if (e.code === 'auth/unauthorized-domain') {
-        setAlertMsg("Firebase Auth Blocked: You must deploy this to Netlify first! Local network IPs (192.168.x.x) are not allowed by Google Login.");
-      } else {
-        setAlertMsg(`Google Login Error: ${e.message}`); 
-      }
+      setAlertMsg(`Google Login Failed: ${e.message} \n\n(Make sure your Netlify Domain is added to Firebase Authorized Domains!)`); 
     }
   };
 
   const loginAsGuest = async () => {
     try { await signInAnonymously(auth); }
-    catch (e) { setAlertMsg(`Guest Login Error: ${e.message} (Did you enable Anonymous Auth in Firebase?)`); }
+    catch (e) { setAlertMsg(`Guest Login Error: ${e.message}`); }
   };
 
   const linkGoogleAccount = async () => {
     try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
-        await linkWithRedirect(auth.currentUser, googleProvider);
-      } else {
-        const result = await linkWithPopup(auth.currentUser, googleProvider);
-        const linkedUser = result.user;
-        const updates = {
-          displayName: linkedUser.displayName || profile.displayName,
-          photoURL: linkedUser.photoURL || profile.photoURL
-        };
-        await update(ref(db, `users/${linkedUser.uid}`), updates);
-        setProfile({...profile, ...updates});
-        setAlertMsg("Account successfully secured with Google!");
+      const result = await linkWithPopup(auth.currentUser, googleProvider);
+      const updates = { displayName: result.user.displayName, photoURL: result.user.photoURL };
+      await update(ref(db, `users/${result.user.uid}`), updates);
+      setProfile({...profile, ...updates});
+      setAlertMsg("Account securely linked with Google!");
+    } catch (e) { setAlertMsg(`Link Failed: ${e.message}`); }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 150; canvas.height = 150;
+        ctx.drawImage(img, 0, 0, 150, 150);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        setProfile({...profile, photoURL: base64});
       }
-    } catch (e) {
-      setAlertMsg(`Failed to link account: ${e.message}`);
+      img.src = event.target.result;
+    }
+    reader.readAsDataURL(file);
+  };
+
+  const addFriend = async () => {
+    if(!friendCodeInput.trim() || friendCodeInput === profile.friendCode) return setAlertMsg("Invalid friend code.");
+    const q = query(ref(db, 'users'), orderByChild('friendCode'), equalTo(friendCodeInput.trim().toUpperCase()));
+    const snap = await get(q);
+    if(snap.exists()) {
+      const friendUid = Object.keys(snap.val())[0];
+      const fData = snap.val()[friendUid];
+      await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: fData.displayName, photoURL: fData.photoURL });
+      setAlertMsg(`${fData.displayName} added to friends!`);
+      setFriendCodeInput("");
+    } else {
+      setAlertMsg("Player not found!");
+    }
+  };
+
+  const inviteFriend = (friendUid) => {
+    if(!roomCode) return;
+    set(ref(db, `users/${friendUid}/invite`), { roomCode, senderName: profile.displayName });
+    setAlertMsg("Invite sent!");
+  };
+
+  const acceptInvite = () => {
+    if(pendingInvite?.roomCode) {
+      setJoinInput(pendingInvite.roomCode);
+      remove(ref(db, `users/${user.uid}/invite`));
+      joinRoom(pendingInvite.roomCode);
     }
   };
 
@@ -215,9 +241,7 @@ function App() {
     const snapshot = await get(usersRef);
     if (snapshot.exists()) {
       const usersObj = snapshot.val();
-      const usersArray = Object.values(usersObj)
-        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
-        .slice(0, 50); 
+      const usersArray = Object.values(usersObj).sort((a, b) => (b.coins || 0) - (a.coins || 0)).slice(0, 50); 
       setLeaderboard(usersArray);
     }
   };
@@ -239,43 +263,23 @@ function App() {
   }, [gameState?.winner, roomCode, user?.uid]);
 
   useEffect(() => {
-    if (!monsterAudioRef.current) {
-      monsterAudioRef.current = new Audio('/Monster-laugh.mp3');
-      monsterAudioRef.current.loop = true;
-    }
+    if (!monsterAudioRef.current) { monsterAudioRef.current = new Audio('/Monster-laugh.mp3'); monsterAudioRef.current.loop = true; }
   }, []);
 
   useEffect(() => {
-    if (gameState?.attackingToken && !isSfxMuted) {
-      monsterAudioRef.current?.play().catch(e => {});
-    } else {
-      if (monsterAudioRef.current) {
-        monsterAudioRef.current.pause();
-        monsterAudioRef.current.currentTime = 0; 
-      }
-    }
+    if (gameState?.attackingToken && !isSfxMuted) monsterAudioRef.current?.play().catch(()=>{});
+    else if (monsterAudioRef.current) { monsterAudioRef.current.pause(); monsterAudioRef.current.currentTime = 0; }
   }, [gameState?.attackingToken, isSfxMuted]);
 
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('/bg-music.mp3');
-      audioRef.current.loop = true;
-    }
-    const startAudio = () => {
-      if (!musicStarted && audioRef.current) {
-        audioRef.current.play().then(() => { setMusicStarted(true); window.removeEventListener('click', startAudio); }).catch(() => {});
-      }
-    };
-    startAudio();
-    window.addEventListener('click', startAudio);
+    if (!audioRef.current) { audioRef.current = new Audio('/bg-music.mp3'); audioRef.current.loop = true; }
+    const startAudio = () => { if (!musicStarted && audioRef.current) audioRef.current.play().then(() => setMusicStarted(true)).catch(()=>{}); };
+    startAudio(); window.addEventListener('click', startAudio);
     return () => window.removeEventListener('click', startAudio);
   }, [musicStarted]);
 
   useEffect(() => { 
-    if (audioRef.current) {
-      audioRef.current.volume = bgmVolume; 
-      audioRef.current.muted = (isMusicMuted || bgmVolume === 0);
-    }
+    if (audioRef.current) { audioRef.current.volume = bgmVolume; audioRef.current.muted = (isMusicMuted || bgmVolume === 0); }
   }, [bgmVolume, isMusicMuted]);
 
   useEffect(() => {
@@ -283,7 +287,7 @@ function App() {
     const gameRef = ref(db, `rooms/${roomCode}`);
     const unsubscribe = onValue(gameRef, (snapshot) => {
       if (snapshot.exists()) setGameState(snapshot.val());
-      else { setAlertMsg("Room Code not found or game ended!"); setRoomCode(null); setActiveModal(null); }
+      else { setAlertMsg("Room closed."); setRoomCode(null); setActiveModal(null); }
     });
     return () => unsubscribe();
   }, [roomCode]);
@@ -296,84 +300,55 @@ function App() {
         lastPlayedChatRef.current = latestChat.timestamp;
         playChatVoice(latestChat.audioId);
       }
-      if (isChatOpen) {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
+      if (isChatOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [gameState?.chat, isChatOpen]);
 
   const copyRoomCode = () => {
-    if (roomCode) {
-      navigator.clipboard.writeText(roomCode);
-      setAlertMsg("Room code copied to clipboard!");
-    }
+    if (roomCode) { navigator.clipboard.writeText(roomCode); setAlertMsg("Code copied!"); }
   }
 
   const createRoom = async (vsBot = false) => {
-    if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Not enough coins! You need ${BET_AMOUNT} coins to play.`);
-    
+    if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Need ${BET_AMOUNT} coins!`);
     const code = Math.random().toString(36).substring(2, 6).toUpperCase();
     let count = vsBot ? 2 : playerSelect;
-    const initialTokens = {};
-    const playersInfo = {};
+    const initialTokens = {}; const playersInfo = {};
 
     if (count >= 2) { 
       if (vsBot) {
-        initialTokens.blue = BASE_POSITIONS.blue; 
-        initialTokens.green = BASE_POSITIONS.green; 
+        initialTokens.blue = BASE_POSITIONS.blue; initialTokens.green = BASE_POSITIONS.green; 
         playersInfo.blue = { name: profile.displayName, uid: user.uid, isBot: false };
         playersInfo.green = { name: "AI Bot", isBot: true };
       } else {
-        initialTokens.red = BASE_POSITIONS.red; 
-        initialTokens.yellow = BASE_POSITIONS.yellow; 
+        initialTokens.red = BASE_POSITIONS.red; initialTokens.yellow = BASE_POSITIONS.yellow; 
         playersInfo.red = { name: profile.displayName, uid: user.uid, isBot: false };
         playersInfo.yellow = { name: "Waiting...", isBot: false };
       }
     } 
-    if (count >= 3 && !vsBot) { 
-      initialTokens.green = BASE_POSITIONS.green; 
-      playersInfo.green = { name: "Waiting...", isBot: false };
-    }
-    if (count === 4 && !vsBot) { 
-      initialTokens.blue = BASE_POSITIONS.blue; 
-      playersInfo.blue = { name: "Waiting...", isBot: false };
-    }
-
+    if (count >= 3 && !vsBot) { initialTokens.green = BASE_POSITIONS.green; playersInfo.green = { name: "Waiting...", isBot: false }; }
+    if (count === 4 && !vsBot) { initialTokens.blue = BASE_POSITIONS.blue; playersInfo.blue = { name: "Waiting...", isBot: false }; }
     const orderedColors = TURN_ORDER.filter(color => initialTokens[color]);
     
     try {
       await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
       await update(ref(db, `rooms/${code}`), {
-        tokens: initialTokens,
-        players: playersInfo,
-        activeColors: orderedColors,
-        currentPlayer: orderedColors[0],
-        currentRoll: 0,
-        consecutiveSixes: 0,
-        winner: "",
-        isAnimating: false,
-        botRolling: false,
-        attackingToken: null,
-        payoutClaimed: false,
-        pot: vsBot ? (BET_AMOUNT * 2) : BET_AMOUNT,
-        scores: { red: 0, green: 0, yellow: 0, blue: 0 }
+        tokens: initialTokens, players: playersInfo, activeColors: orderedColors, currentPlayer: orderedColors[0],
+        currentRoll: 0, consecutiveSixes: 0, winner: "", isAnimating: false, botRolling: false, attackingToken: null,
+        payoutClaimed: false, pot: vsBot ? (BET_AMOUNT * 2) : BET_AMOUNT, scores: { red: 0, green: 0, yellow: 0, blue: 0 }
       });
-      setIsHost(true); 
-      setRoomCode(code);
-      setActiveModal(null);
-    } catch (e) { setAlertMsg("Failed to connect to server."); }
+      setIsHost(true); setRoomCode(code); setActiveModal(null);
+    } catch (e) { setAlertMsg("Failed to connect."); }
   };
 
-  const joinRoom = () => {
-    if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Not enough coins! You need ${BET_AMOUNT} coins to join.`);
-    if (joinInput.length !== 4) return setAlertMsg("Enter a valid 4-letter code");
+  const joinRoom = (codeOverride) => {
+    const codeToJoin = typeof codeOverride === 'string' ? codeOverride : joinInput;
+    if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Need ${BET_AMOUNT} coins!`);
+    if (codeToJoin.length !== 4) return setAlertMsg("Invalid code.");
     
-    const gameRef = ref(db, `rooms/${joinInput}`);
-    get(gameRef).then(async (snapshot) => {
+    get(ref(db, `rooms/${codeToJoin}`)).then(async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        if(data.winner) return setAlertMsg("Game already finished!");
-
+        if(data.winner) return setAlertMsg("Game finished!");
         let assignedColor = null;
         Object.keys(data?.players || {}).forEach(color => {
           if (data.players[color]?.name === "Waiting..." && !assignedColor) assignedColor = color;
@@ -381,15 +356,10 @@ function App() {
         
         if (assignedColor) {
            await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
-           await update(ref(db, `rooms/${joinInput}`), { pot: (data.pot || 0) + BET_AMOUNT });
-           await update(ref(db, `rooms/${joinInput}/players/${assignedColor}`), { name: profile.displayName, uid: user.uid });
-           
-           setIsHost(false);
-           setRoomCode(joinInput);
-           setActiveModal(null);
-        } else {
-           setAlertMsg("Room is full or doesn't exist!");
-        }
+           await update(ref(db, `rooms/${codeToJoin}`), { pot: (data.pot || 0) + BET_AMOUNT });
+           await update(ref(db, `rooms/${codeToJoin}/players/${assignedColor}`), { name: profile.displayName, uid: user.uid });
+           setIsHost(false); setRoomCode(codeToJoin); setActiveModal(null);
+        } else { setAlertMsg("Room full!"); }
       } else { setAlertMsg("Room not found!"); }
     });
   };
@@ -399,55 +369,34 @@ function App() {
     const snap = await get(winRef);
     if(snap.exists()) {
       const uData = snap.val();
-      await update(winRef, { 
-        coins: uData.coins + BET_AMOUNT,
-        gamesPlayed: Math.max(0, uData.gamesPlayed - 1)
-      });
+      await update(winRef, { coins: uData.coins + BET_AMOUNT, gamesPlayed: Math.max(0, uData.gamesPlayed - 1) });
     }
-    setRoomCode(null);
-    setIsHost(false);
+    setRoomCode(null); setIsHost(false);
   };
 
   const handleForfeit = async () => {
     if (gameState && roomCode && user) {
        let myColor = null;
-       Object.keys(gameState.players || {}).forEach(c => {
-          if (gameState.players[c].uid === user.uid) myColor = c;
-       });
-
+       Object.keys(gameState.players || {}).forEach(c => { if (gameState.players[c].uid === user.uid) myColor = c; });
        if (myColor && !gameState.winner) {
           const active = gameState.activeColors || [];
           const remaining = active.filter(c => c !== myColor);
-          
           let updates = { activeColors: remaining };
-          
-          if (remaining.length === 1) {
-             updates.winner = remaining[0]; 
-          } else if (remaining.length === 0) {
-             updates.winner = "Draw"; 
-          } else if (gameState.currentPlayer === myColor) {
-             const nextIndex = (active.indexOf(myColor) + 1) % active.length;
-             updates.currentPlayer = active[nextIndex];
-          }
+          if (remaining.length === 1) updates.winner = remaining[0]; 
+          else if (remaining.length === 0) updates.winner = "Draw"; 
+          else if (gameState.currentPlayer === myColor) updates.currentPlayer = active[(active.indexOf(myColor) + 1) % active.length];
           await update(ref(db, `rooms/${roomCode}`), updates);
        }
     }
-    setRoomCode(null);
-    setIsHost(false);
+    setRoomCode(null); setIsHost(false);
   };
 
   const handleSendChat = (e, type = 'text', payload = null) => {
     if (e) e.preventDefault();
     let textContent = ""; let audioId = null;
-
-    if (type === 'text') {
-      if (!chatMsg.trim()) return;
-      textContent = chatMsg; setChatMsg("");
-    } else if (type === 'voice') {
-      textContent = payload.label; audioId = payload.id;
-    } else if (type === 'emoji') {
-      textContent = payload;
-    }
+    if (type === 'text') { if (!chatMsg.trim()) return; textContent = chatMsg; setChatMsg(""); } 
+    else if (type === 'voice') { textContent = payload.label; audioId = payload.id; } 
+    else if (type === 'emoji') { textContent = payload; }
 
     push(ref(db, `rooms/${roomCode}/chat`), { 
       sender: profile?.displayName || 'Player', text: textContent, type: type, audioId: audioId, timestamp: Date.now()
@@ -469,7 +418,6 @@ function App() {
   const handleRoll = async (value) => {
     const state = stateRef.current;
     if (state?.isAnimating) return;
-    
     const activePlayer = state.players?.[state.currentPlayer];
     if (!activePlayer?.isBot && activePlayer?.uid !== user.uid) return;
     
@@ -514,7 +462,7 @@ function App() {
            }, 300); 
          }
       }
-    } catch (error) { console.error(error); }
+    } catch (error) {}
   };
 
   const handleTokenClick = async (color, index, tokenArrayIndex) => {
@@ -686,7 +634,9 @@ function App() {
 
   const saveProfile = () => {
     if(!user || !profile) return;
-    update(ref(db, `users/${user.uid}`), { displayName: profile.displayName, gender: profile.gender, photoURL: profile.photoURL });
+    update(ref(db, `users/${user.uid}`), { 
+      displayName: profile.displayName, gender: profile.gender, photoURL: profile.photoURL, country: profile.country 
+    });
     setActiveModal(null);
     setAlertMsg("Profile Successfully Updated!");
   };
@@ -715,12 +665,23 @@ function App() {
     );
   }
 
-  // --- VIBRANT HOMEPAGE ---
+  // --- HOMEPAGE ---
   if (!roomCode) {
     return (
       <div className="home-container">
         <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
         
+        {/* Friend Invite Popup Notification */}
+        {pendingInvite && (
+          <div className="invite-popup">
+            <p><strong>{pendingInvite.senderName}</strong> invited you!</p>
+            <div style={{display:'flex', gap:'10px', marginTop:'10px'}}>
+              <button className="btn btn-primary" onClick={acceptInvite}>Accept</button>
+              <button className="btn btn-leave" onClick={() => remove(ref(db, `users/${user.uid}/invite`))}>Decline</button>
+            </div>
+          </div>
+        )}
+
         <div className="floating-bg-item token-float-1"></div>
         <div className="floating-bg-item dice-float-1">🎲</div>
         <div className="floating-bg-item coin-float-1">🪙</div>
@@ -729,15 +690,12 @@ function App() {
           <div className="home-profile" onClick={() => setActiveModal('profile')}>
             <img src={profile?.photoURL || 'https://via.placeholder.com/50'} alt="Profile" />
             <div className="home-profile-info">
-              <span className="home-name">{profile?.displayName || 'Unknown Player'}</span>
+              <span className="home-name">{profile?.country} {profile?.displayName}</span>
               <div className="level-star">⭐ Level {Math.max(1, Math.floor((profile?.wins || 0)/2) + 1)}</div>
             </div>
           </div>
           <div className="home-coins-container">
-             <div className="home-coins">
-               <span className="coin-icon">🪙</span>
-               <span>{profile?.coins || 0}</span>
-             </div>
+             <div className="home-coins"><span className="coin-icon">🪙</span> <span>{profile?.coins || 0}</span></div>
              <button className="btn-more-coins" onClick={() => setAlertMsg("Daily Reward: +50 Coins coming soon!")}>MORE COINS</button>
           </div>
         </div>
@@ -756,18 +714,19 @@ function App() {
           <button className="btn-huge btn-computer" onClick={() => createRoom(true)}>
              <span className="btn-icon">📱</span> VS COMPUTER
           </button>
-          <button className="btn-huge btn-leaderboard" onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
-             <span className="btn-icon">🏆</span> GLOBAL RANKINGS
-          </button>
+          <div style={{display:'flex', gap:'10px'}}>
+            <button className="btn-huge btn-leaderboard" style={{flex:1}} onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
+               <span className="btn-icon">🏆</span> RANKINGS
+            </button>
+            <button className="btn-huge btn-friends" style={{flex:1, background: '#a855f7'}} onClick={() => setActiveModal('friends')}>
+               <span className="btn-icon">👥</span> FRIENDS
+            </button>
+          </div>
         </div>
 
         <div className="home-bottom-nav">
-          <button className="nav-btn" onClick={() => setActiveModal('settings')}>
-             ⚙️ Settings
-          </button>
-          <button className="nav-btn" onClick={() => signOut(auth)}>
-             🚪 Logout
-          </button>
+          <button className="nav-btn" onClick={() => setActiveModal('settings')}>⚙️ Settings</button>
+          <button className="nav-btn" onClick={() => signOut(auth)}>🚪 Logout</button>
         </div>
 
         {/* MODALS */}
@@ -785,8 +744,41 @@ function App() {
               <hr className="divider"/>
               <h3>Join with Code</h3>
               <input className="modal-input" placeholder="Enter 4-letter code" maxLength={4} value={joinInput} onChange={(e) => setJoinInput(e.target.value.toUpperCase())} />
-              <button className="btn btn-join" style={{width: '100%', marginTop: '10px'}} onClick={joinRoom}>Join Game</button>
+              <button className="btn btn-join" style={{width: '100%', marginTop: '10px'}} onClick={() => joinRoom(joinInput)}>Join Game</button>
               <button className="btn-close" onClick={() => setActiveModal(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {activeModal === 'friends' && (
+          <div className="modal-overlay">
+            <div className="modal-content profile-modal-content">
+              <h2>👥 Friends List</h2>
+              
+              <div style={{background:'rgba(255,255,255,0.05)', padding:'15px', borderRadius:'10px', width:'100%', marginBottom:'20px'}}>
+                 <p style={{margin:0, color:'#94a3b8', fontSize:'14px'}}>Your Friend Code:</p>
+                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                   <h3 style={{margin:'5px 0', letterSpacing:'2px'}}>{profile?.friendCode}</h3>
+                   <button className="btn btn-secondary" onClick={() => {navigator.clipboard.writeText(profile?.friendCode); setAlertMsg("Code Copied!");}}>Copy</button>
+                 </div>
+              </div>
+
+              <div style={{width:'100%', display:'flex', gap:'10px', marginBottom:'20px'}}>
+                 <input className="modal-input" style={{margin:0}} placeholder="Friend Code" maxLength={6} value={friendCodeInput} onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())} />
+                 <button className="btn btn-primary" style={{margin:0}} onClick={addFriend}>Add</button>
+              </div>
+
+              <div className="leaderboard-list" style={{maxHeight:'200px'}}>
+                {Object.keys(profile?.friends || {}).length === 0 ? <p style={{color:'#94a3b8'}}>No friends added yet.</p> : null}
+                {Object.entries(profile?.friends || {}).map(([uid, f]) => (
+                  <div key={uid} className="lb-item">
+                    <img src={f.photoURL || 'https://via.placeholder.com/30'} alt="pic" />
+                    <span className="lb-name">{f.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button className="btn-close" onClick={() => setActiveModal(null)}>Close</button>
             </div>
           </div>
         )}
@@ -797,15 +789,27 @@ function App() {
               <h2>Player Profile</h2>
               <div className="avatar-selection-area">
                 <img src={profile?.photoURL} alt="Profile" className="profile-large" />
-                <p style={{fontSize: '12px', color: '#94a3b8', margin: '5px 0'}}>Select Avatar:</p>
+                
+                {/* Custom Upload Button */}
+                <input type="file" accept="image/*" onChange={handleImageUpload} id="pic-upload" style={{display:'none'}}/>
+                <label htmlFor="pic-upload" className="btn btn-secondary" style={{fontSize:'12px', padding:'8px 12px'}}>📸 Upload Custom Pic</label>
+                
+                <p style={{fontSize: '12px', color: '#94a3b8', margin: '15px 0 5px'}}>Or Select Avatar:</p>
                 <div className="avatar-grid">
                   {AVATARS.map((url, i) => (
                     <img key={i} src={url} alt="avatar" className={`avatar-option ${profile?.photoURL === url ? 'selected' : ''}`} onClick={() => setProfile({...profile, photoURL: url})}/>
                   ))}
                 </div>
               </div>
+              
               <label>Nickname:</label>
               <input className="modal-input" value={profile?.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} />
+              
+              <label>Country:</label>
+              <select className="modal-input" value={profile?.country || '🌍'} onChange={(e) => setProfile({...profile, country: e.target.value})}>
+                {COUNTRIES.map(c => <option key={c.name} value={c.flag}>{c.flag} {c.name}</option>)}
+              </select>
+
               <label>Gender:</label>
               <select className="modal-input" value={profile?.gender || 'Unspecified'} onChange={(e) => setProfile({...profile, gender: e.target.value})}>
                 <option value="Unspecified">Unspecified</option>
@@ -839,7 +843,7 @@ function App() {
                   <div key={i} className={`lb-item ${u.displayName === profile?.displayName ? 'is-me' : ''}`}>
                     <span className="lb-rank">#{i+1}</span>
                     <img src={u.photoURL || 'https://via.placeholder.com/30'} alt="pic" />
-                    <span className="lb-name">{u.displayName || 'Unknown Player'}</span>
+                    <span className="lb-name">{u.country || '🌍'} {u.displayName || 'Unknown'}</span>
                     <span className="lb-coins">{u.coins} 🪙</span>
                   </div>
                 ))}
@@ -864,7 +868,7 @@ function App() {
                 </button>
               </div>
               <div className="settings-row">
-                <span>Sound Effects</span>
+                <span>Sound Effects (SFX)</span>
                 <button className={`toggle-btn ${isSfxMuted ? 'off' : 'on'}`} onClick={() => setIsSfxMuted(!isSfxMuted)}>
                   {isSfxMuted ? 'Muted' : 'Active'}
                 </button>
@@ -873,7 +877,6 @@ function App() {
             </div>
           </div>
         )}
-
       </div>
     );
   }
@@ -881,6 +884,7 @@ function App() {
   const players = gameState?.players || {};
   const isGameReady = Object.values(players).every(p => p.name !== "Waiting...");
 
+  // --- WAITING LOBBY SCREEN ---
   if (!isGameReady) {
     return (
       <div className="lobby-container">
@@ -894,6 +898,20 @@ function App() {
 
           <p className="lobby-subtitle">Share this code to invite players!</p>
           
+          {/* Invite Friend Section */}
+          {Object.keys(profile?.friends || {}).length > 0 && (
+             <div className="invite-friend-scroll">
+               <p style={{fontSize:'12px', color:'#94a3b8', margin:'0 0 5px'}}>Invite a Friend:</p>
+               <div style={{display:'flex', gap:'10px', overflowX:'auto'}}>
+                  {Object.entries(profile.friends).map(([fid, f]) => (
+                     <div key={fid} className="friend-invite-chip" onClick={() => inviteFriend(fid)}>
+                       <img src={f.photoURL} alt="f"/> {f.name.split(" ")[0]}
+                     </div>
+                  ))}
+               </div>
+             </div>
+          )}
+
           <div className="waiting-players-grid">
             {TURN_ORDER.filter(c => players[c]).map(color => {
               const p = players[color];
@@ -930,15 +948,13 @@ function App() {
       <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
       <div className="game-container">
         
+        {/* TOP BAR - Hidden Room Code during active game */}
         <div className="top-bar">
-          <div className="room-header" style={{display:'flex', alignItems:'center', gap:'8px'}}>
-            Code: <strong>{roomCode}</strong>
-            <button className="btn-copy-small" onClick={copyRoomCode}>📋</button>
-          </div>
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           <button className="settings-icon-btn" onClick={() => setActiveModal('settings')}>⚙️</button>
         </div>
 
+        {/* FLUID BOARD SCALER */}
         <div className="board-scaler">
           <Board 
             tokens={normalizeTokens(gameState?.tokens)} 
@@ -976,7 +992,6 @@ function App() {
           </div>
         )}
 
-        {/* IN-GAME SETTINGS MODAL */}
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -1004,7 +1019,7 @@ function App() {
 
         {/* --- 40% TRANSPARENT CHAT OVERLAY --- */}
         {isChatOpen && (
-          <div className="chat-overlay-backdrop">
+          <div className="chat-overlay-backdrop" onClick={(e) => { if(e.target === e.currentTarget) setIsChatOpen(false) }}>
             <div className="chat-container">
               <div className="chat-header">
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
