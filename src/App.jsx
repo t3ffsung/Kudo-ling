@@ -5,9 +5,10 @@ import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuth
 import './App.css';
 import './Game.css';
 import { BET_AMOUNT, BASE_POSITIONS, TURN_ORDER, SAFE_SPOTS, PATHS, AVATARS, normalizeTokens } from './constants';
-import { LoginScreen, HomeScreen, LobbyScreen, GameScreen } from './AppScreens';
+import { SplashScreen, LoginScreen, HomeScreen, LobbyScreen, GameScreen } from './AppScreens';
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true); // SPLASH SCREEN STATE
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activeModal, setActiveModal] = useState(null); 
@@ -25,7 +26,7 @@ function App() {
   const [chatMode, setChatMode] = useState('text');
   const [chatMsg, setChatMsg] = useState("");
   
-  const [bgmVolume, setBgmVolume] = useState(0.15); // Reduced default by 60%
+  const [bgmVolume, setBgmVolume] = useState(0.15); 
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [isSfxMuted, setIsSfxMuted] = useState(false);
 
@@ -42,6 +43,12 @@ function App() {
 
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
+
+  // Handle Splash Screen duration (adjust 4000 to match your video's exact length in milliseconds)
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const playSound = (type) => {
     if (isSfxMutedRef.current) return;
@@ -345,10 +352,14 @@ function App() {
   const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
   const gameActions = { loginWithGoogle, loginAsGuest, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
+  // Conditional Rendering including Splash Screen
+  if (showSplash) return <SplashScreen />;
   if (!user) return <LoginScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   if (!roomCode) return <HomeScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  
   const players = gameState?.players || {};
   if (!Object.values(players).every(p => p.name !== "Waiting...")) return <LobbyScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  
   return <GameScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} chatEndRef={chatEndRef} />;
 }
 
