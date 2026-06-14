@@ -4,11 +4,27 @@ import Dice from './Dice';
 import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModal, SettingsModal } from './Modals';
 import { TURN_ORDER, VOICE_PRESETS, EMOJIS, normalizeTokens } from './constants';
 
+export const SplashScreen = () => (
+  <div className="splash-screen">
+    {/* Ensure your video is saved as splash-animation.mp4 in the public folder */}
+    <video 
+      src="/splash-animation.mp4" 
+      autoPlay 
+      muted 
+      playsInline 
+      className="splash-video"
+    />
+  </div>
+);
+
 export const LoginScreen = ({ uiState, uiActions, gameActions }) => (
   <div className="login-screen">
     <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
-    <div className="login-card">
-      <div className="ludo-title login-logo"><span className="crown">👑</span><br/>LET'S <span>LUDO</span></div>
+    <div className="login-card" style={{zIndex: 10}}>
+      <h1 className="ludo-title animated-title" style={{marginBottom: '20px'}}>
+        <span className="lets-text">Let's</span>
+        <span className="l-r">L</span><span className="l-u">U</span><span className="l-d">D</span><span className="l-o">O</span>
+      </h1>
       <p className="login-subtitle">Connect and claim your 1000 🪙 bonus!</p>
       <div className="login-actions">
         <button className="btn-google" onClick={gameActions.loginWithGoogle}><img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Sign in with Google</button>
@@ -30,11 +46,8 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
         </div>
       </div>
     )}
-    <div className="floating-bg-item token-float-1"></div>
-    <div className="floating-bg-item dice-float-1">🎲</div>
-    <div className="floating-bg-item coin-float-1">🪙</div>
     
-    <div className="home-header">
+    <div className="home-header" style={{zIndex: 10}}>
       <div className="home-profile" onClick={() => uiActions.setActiveModal('profile')}>
         <img src={uiState.profile?.photoURL || 'https://via.placeholder.com/50'} alt="Profile" />
         <div className="home-profile-info">
@@ -48,16 +61,21 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
       </div>
     </div>
 
-    <div className="home-main-logo"><h1 className="ludo-title animated-title"><span className="crown glow-pulse">👑</span><br/>LET'S <span>LUDO</span></h1></div>
+    <div className="home-main-logo" style={{zIndex: 10}}>
+      <h1 className="ludo-title animated-title">
+        <span className="lets-text">Let's</span>
+        <span className="l-r">L</span><span className="l-u">U</span><span className="l-d">D</span><span className="l-o">O</span>
+      </h1>
+    </div>
 
-    <div className="home-actions">
+    <div className="home-actions" style={{zIndex: 10}}>
       <button className="btn-huge btn-multiplayer" onClick={() => uiActions.setActiveModal('host')}><span className="btn-icon">🌍</span> ONLINE MULTIPLAYER</button>
       <button className="btn-huge btn-computer" onClick={() => gameActions.createRoom(true)}><span className="btn-icon">📱</span> VS COMPUTER</button>
       <button className="btn-huge btn-leaderboard" onClick={() => { gameActions.fetchLeaderboard(); uiActions.setActiveModal('leaderboard'); }}><span className="btn-icon">🏆</span> RANKINGS</button>
       <button className="btn-huge btn-friends" onClick={() => uiActions.setActiveModal('friends')}><span className="btn-icon">👥</span> FRIENDS</button>
     </div>
 
-    <div className="home-bottom-nav">
+    <div className="home-bottom-nav" style={{zIndex: 10}}>
       <button className="nav-btn" onClick={() => uiActions.setActiveModal('settings')}>⚙️ Settings</button>
       <button className="nav-btn" onClick={gameActions.handleSignOut}>🚪 Logout</button>
     </div>
@@ -137,13 +155,12 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
       
-      const uiHeight = 280; // Total height needed for top bar and bottom controls
-      const horizontalPadding = 20; // Ensure board never clips the sides
+      const uiHeight = 280; 
+      const horizontalPadding = 20; 
       
       let scaleW = (screenW - horizontalPadding) / baseBoardSize;
       let scaleH = (screenH - uiHeight) / baseBoardSize;
       
-      // Enforce the scale so the board shrinks enough to fit perfectly
       setBoardScale(Math.min(scaleW, scaleH, 1));
     };
     
@@ -171,7 +188,6 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           </div>
         </div>
 
-        {/* BOUNDING BOX FIX: The wrapper's actual layout space shrinks to match the scale, preventing invisible overhangs */}
         <div style={{ 
             width: `${baseBoardSize * boardScale}px`, 
             height: `${baseBoardSize * boardScale}px`, 
