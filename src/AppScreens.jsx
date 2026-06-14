@@ -8,7 +8,7 @@ export const LoginScreen = ({ uiState, uiActions, gameActions }) => (
   <div className="login-screen">
     <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
     <div className="login-card">
-      <div className="ludo-title login-logo"><span className="crown">👑</span><br/>LUDO <span>KING</span></div>
+      <div className="ludo-title login-logo"><span className="crown">👑</span><br/>LET'S <span>LUDO</span></div>
       <p className="login-subtitle">Connect and claim your 1000 🪙 bonus!</p>
       <div className="login-actions">
         <button className="btn-google" onClick={gameActions.loginWithGoogle}><img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Sign in with Google</button>
@@ -48,7 +48,7 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
       </div>
     </div>
 
-    <div className="home-main-logo"><h1 className="ludo-title animated-title"><span className="crown glow-pulse">👑</span><br/>LUDO <span>KING</span></h1></div>
+    <div className="home-main-logo"><h1 className="ludo-title animated-title"><span className="crown glow-pulse">👑</span><br/>LET'S <span>LUDO</span></h1></div>
 
     <div className="home-actions">
       <button className="btn-huge btn-multiplayer" onClick={() => uiActions.setActiveModal('host')}><span className="btn-icon">🌍</span> ONLINE MULTIPLAYER</button>
@@ -123,9 +123,15 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   const attackingToken = gameState?.attackingToken || null;
   const isMyTurn = players?.[currentPlayer]?.uid === user?.uid;
 
+  const myColor = Object.keys(players).find(c => players[c]?.uid === user?.uid) || 'blue';
+  
+  let boardRotation = 0;
+  if (myColor === 'red') boardRotation = -90;
+  else if (myColor === 'green') boardRotation = 180;
+  else if (myColor === 'yellow') boardRotation = 90;
+
   const [boardScale, setBoardScale] = useState(1);
   
-  // FIX 1: Restored the completely stable board scaling math you requested
   useEffect(() => {
     const handleResize = () => {
       const screenW = window.innerWidth;
@@ -146,11 +152,20 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
       <div className="game-container">
         <div className="top-bar" style={{justifyContent: 'flex-end'}}>
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
-          <button className="settings-icon-btn" onClick={() => uiActions.setActiveModal('settings')}>⚙️</button>
+          
+          <div style={{display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', alignItems: 'center'}}>
+             <button className="settings-icon-btn" style={{width: '40px', height: '40px', fontSize: '18px', border: 'none'}} onClick={() => uiActions.setIsMusicMuted(!isMusicMuted)} title="Toggle Music">
+                {isMusicMuted ? '🔇' : '🎵'}
+             </button>
+             <button className="settings-icon-btn" style={{width: '40px', height: '40px', fontSize: '18px', border: 'none'}} onClick={() => uiActions.setIsSfxMuted(!isSfxMuted)} title="Toggle SFX">
+                {isSfxMuted ? '🔕' : '🔊'}
+             </button>
+             <input type="range" min="0" max="1" step="0.01" value={bgmVolume} onChange={(e) => uiActions.setBgmVolume(parseFloat(e.target.value))} style={{width: '70px', accentColor: '#38bdf8'}} title="Volume" />
+          </div>
         </div>
 
-        <div className="board-scaler" style={{ transform: `scale(${boardScale})`, height: `${520 * boardScale}px` }}>
-          <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} />
+        <div className="board-scaler" style={{ transform: `scale(${boardScale})` }}>
+          <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} boardRotation={boardRotation} players={players} chatList={chatList} />
         </div>
         
         <div className="dice-and-chat-controls">
@@ -169,8 +184,6 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           </div>
         )}
 
-        {uiState.activeModal === 'settings' && <SettingsModal bgmVolume={bgmVolume} setBgmVolume={uiActions.setBgmVolume} isMusicMuted={isMusicMuted} setIsMusicMuted={uiActions.setIsMusicMuted} isSfxMuted={isSfxMuted} setIsSfxMuted={uiActions.setIsSfxMuted} setActiveModal={uiActions.setActiveModal} />}
-
         {isChatOpen && (
           <div className="chat-overlay-backdrop" onClick={(e) => { if(e.target === e.currentTarget) uiActions.setIsChatOpen(false) }}>
             <div className="chat-container">
@@ -185,7 +198,6 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
                 </div>
               </div>
               
-              {/* FIX 2: Hiding the chat history when you're looking at presets completely kills the giant void gap */}
               <div className="chat-messages" style={{ display: chatMode === 'text' ? 'flex' : 'none' }}>
                 {chatList.map((msg, i) => (
                   <div key={i} className={`chat-msg ${msg.sender === uiState.profile?.displayName ? 'self' : ''} ${msg.type === 'emoji' ? 'emoji-msg' : ''}`}>
