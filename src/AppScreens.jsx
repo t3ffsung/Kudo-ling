@@ -4,15 +4,16 @@ import Dice from './Dice';
 import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModal, SettingsModal } from './Modals';
 import { TURN_ORDER, VOICE_PRESETS, EMOJIS, normalizeTokens } from './constants';
 
-export const SplashScreen = () => (
+export const SplashScreen = ({ onComplete }) => (
   <div className="splash-screen">
-    {/* Ensure your video is saved as splash-animation.mp4 in the public folder */}
     <video 
-      src="/splash-animation.mp4" 
+      src="/lets-ludo.mp4" 
       autoPlay 
-      muted 
       playsInline 
       className="splash-video"
+      onEnded={() => {
+        setTimeout(onComplete, 1500);
+      }}
     />
   </div>
 );
@@ -46,6 +47,9 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
         </div>
       </div>
     )}
+    <div className="floating-bg-item token-float-1"></div>
+    <div className="floating-bg-item dice-float-1">🎲</div>
+    <div className="floating-bg-item coin-float-1">🪙</div>
     
     <div className="home-header" style={{zIndex: 10}}>
       <div className="home-profile" onClick={() => uiActions.setActiveModal('profile')}>
