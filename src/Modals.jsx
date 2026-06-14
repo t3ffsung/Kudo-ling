@@ -1,4 +1,3 @@
-// Modals.jsx
 import React from 'react';
 import { COUNTRIES, AVATARS, BET_AMOUNT } from './constants';
 
@@ -61,7 +60,7 @@ export const ProfileModal = ({ profile, setProfile, user, linkGoogleAccount, han
   </div>
 );
 
-export const FriendsModal = ({ profile, friendCodeInput, setFriendCodeInput, addFriend, addFriendDirectly, setActiveModal, setAlertMsg }) => (
+export const FriendsModal = ({ profile, friendCodeInput, setFriendCodeInput, challengeFriend, setActiveModal, setAlertMsg }) => (
   <div className="modal-overlay">
     <div className="modal-content profile-modal-content">
       <h2>👥 Friends List</h2>
@@ -74,14 +73,17 @@ export const FriendsModal = ({ profile, friendCodeInput, setFriendCodeInput, add
       </div>
       <div style={{width:'100%', display:'flex', gap:'10px', marginBottom:'20px'}}>
          <input className="modal-input" style={{margin:0}} placeholder="Friend Code" maxLength={6} value={friendCodeInput} onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())} />
-         <button className="btn btn-primary" style={{margin:0}} onClick={addFriend}>Add</button>
+         <button className="btn btn-primary" style={{margin:0}} onClick={() => setAlertMsg("Ensure the Friend Code matches exactly to add.")}>Add</button>
       </div>
       <div className="leaderboard-list" style={{maxHeight:'200px'}}>
         {Object.keys(profile?.friends || {}).length === 0 ? <p style={{color:'#94a3b8'}}>No friends added yet.</p> : null}
         {Object.entries(profile?.friends || {}).map(([uid, f]) => (
           <div key={uid} className="lb-item">
             <img src={f.photoURL || 'https://via.placeholder.com/30'} alt="pic" />
-            <span className="lb-name">{f.name}</span>
+            <span className="lb-name" style={{flex: 1}}>{f.name}</span>
+            <button className="btn-add-friend-small" style={{backgroundColor: '#10b981', borderColor: '#059669', color: 'white'}} onClick={() => challengeFriend(uid, f.name)}>
+              ⚔️ Play
+            </button>
           </div>
         ))}
       </div>
@@ -90,13 +92,14 @@ export const FriendsModal = ({ profile, friendCodeInput, setFriendCodeInput, add
   </div>
 );
 
-export const LeaderboardModal = ({ leaderboard, user, addFriendDirectly, setActiveModal }) => (
+export const LeaderboardModal = ({ leaderboard, user, profile, challengeFriend, addFriendDirectly, setActiveModal }) => (
   <div className="modal-overlay">
     <div className="modal-content leaderboard-modal">
       <h2>🏆 Top 50 Players</h2>
       <div className="leaderboard-list">
         {leaderboard.map((u, i) => {
           const isMe = u.uid === user?.uid;
+          const isFriend = profile?.friends && profile.friends[u.uid];
           return (
           <div key={i} className={`lb-item ${isMe ? 'is-me' : ''}`}>
             <span className="lb-rank">#{i+1}</span>
@@ -105,9 +108,16 @@ export const LeaderboardModal = ({ leaderboard, user, addFriendDirectly, setActi
               <span className="lb-name">{u.country || '🌍'} {u.displayName || 'Unknown'}</span>
               <span className="lb-coins">{u.coins} 🪙</span>
             </div>
-            {!isMe && (
+            
+            {!isMe && !isFriend && (
                <button className="btn-add-friend-small" onClick={() => addFriendDirectly(u.uid, u.displayName, u.photoURL)}>
                  +👤
+               </button>
+            )}
+            
+            {!isMe && isFriend && (
+               <button className="btn-add-friend-small" style={{backgroundColor: '#10b981', borderColor: '#059669', color: 'white'}} onClick={() => challengeFriend(u.uid, u.displayName)}>
+                 ⚔️ Play
                </button>
             )}
           </div>
