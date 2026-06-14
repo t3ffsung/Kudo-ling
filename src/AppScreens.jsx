@@ -125,6 +125,7 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
 
   const [boardScale, setBoardScale] = useState(1);
   
+  // FIX 1: Restored the completely stable board scaling math you requested
   useEffect(() => {
     const handleResize = () => {
       const screenW = window.innerWidth;
@@ -184,7 +185,8 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
                 </div>
               </div>
               
-              <div className="chat-messages">
+              {/* FIX 2: Hiding the chat history when you're looking at presets completely kills the giant void gap */}
+              <div className="chat-messages" style={{ display: chatMode === 'text' ? 'flex' : 'none' }}>
                 {chatList.map((msg, i) => (
                   <div key={i} className={`chat-msg ${msg.sender === uiState.profile?.displayName ? 'self' : ''} ${msg.type === 'emoji' ? 'emoji-msg' : ''}`}>
                     {msg.sender !== uiState.profile?.displayName && <div className="chat-sender">{msg.sender}</div>}
