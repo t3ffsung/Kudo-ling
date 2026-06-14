@@ -4,20 +4,40 @@ import Dice from './Dice';
 import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModal, SettingsModal } from './Modals';
 import { TURN_ORDER, VOICE_PRESETS, EMOJIS, normalizeTokens } from './constants';
 
-export const SplashScreen = ({ onComplete }) => (
-  <div className="splash-screen">
-    <video 
-      src="/lets-ludo.mp4" 
-      autoPlay 
-      playsInline 
-      className="splash-video"
-      onEnded={() => {
-        setTimeout(onComplete, 1500);
-      }}
-    />
-  </div>
-);
+export const SplashScreen = ({ onComplete }) => {
+  // FAILSAFE: Force the app to move forward after 6 seconds 
+  // just in case the video gets completely blocked or fails to load.
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      onComplete();
+    }, 6000); 
+    return () => clearTimeout(fallbackTimer);
+  }, [onComplete]);
 
+  const handleManualPlay = (e) => {
+    const video = document.getElementById('splash-vid');
+    if (video) video.play().catch(err => console.log("Playback still blocked:", err));
+  };
+
+  return (
+    <div className="splash-screen" onClick={handleManualPlay} style={{ cursor: 'pointer' }}>
+      <p style={{ position: 'absolute', top: '20%', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', letterSpacing: '1px', animation: 'pulse-glow 2s infinite' }}>
+        Tap anywhere to start!
+      </p>
+      <video 
+        id="splash-vid"
+        src="/lets-ludo.mp4" 
+        autoPlay 
+        playsInline 
+        className="splash-video"
+        onEnded={() => {
+          setTimeout(onComplete, 1000);
+        }}
+        onError={onComplete} // Skip immediately if the file is missing/broken
+      />
+    </div>
+  );
+};
 export const LoginScreen = ({ uiState, uiActions, gameActions }) => (
   <div className="login-screen">
     <CustomAlert msg={uiState.alertMsg} onClose={() => uiActions.setAlertMsg(null)} />
