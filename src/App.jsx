@@ -8,7 +8,7 @@ import { BET_AMOUNT, BASE_POSITIONS, TURN_ORDER, SAFE_SPOTS, PATHS, AVATARS, nor
 import { SplashScreen, LoginScreen, HomeScreen, LobbyScreen, GameScreen } from './AppScreens';
 
 function App() {
-  const [showSplash, setShowSplash] = useState(true); // SPLASH SCREEN STATE
+  const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activeModal, setActiveModal] = useState(null); 
@@ -44,11 +44,9 @@ function App() {
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
-  // Handle Splash Screen duration (adjust 4000 to match your video's exact length in milliseconds)
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 4000);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
 
   const playSound = (type) => {
     if (isSfxMutedRef.current) return;
@@ -298,10 +296,20 @@ function App() {
 
   useEffect(() => {
     if (!audioRef.current) { audioRef.current = new Audio('/bg-music.mp3'); audioRef.current.loop = true; }
-    const startAudio = () => { if (!musicStarted && audioRef.current) audioRef.current.play().then(() => setMusicStarted(true)).catch(()=>{}); };
-    startAudio(); window.addEventListener('click', startAudio);
+    
+    const startAudio = () => { 
+      if (!showSplash && !musicStarted && audioRef.current) {
+        audioRef.current.play().then(() => setMusicStarted(true)).catch(()=>{}); 
+      }
+    };
+
+    if (!showSplash) {
+      startAudio();
+    }
+    
+    window.addEventListener('click', startAudio);
     return () => window.removeEventListener('click', startAudio);
-  }, [musicStarted]);
+  }, [showSplash, musicStarted]);
 
   useEffect(() => { if (audioRef.current) { audioRef.current.volume = bgmVolume; audioRef.current.muted = (isMusicMuted || bgmVolume === 0); } }, [bgmVolume, isMusicMuted]);
 
@@ -352,8 +360,7 @@ function App() {
   const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
   const gameActions = { loginWithGoogle, loginAsGuest, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
-  // Conditional Rendering including Splash Screen
-  if (showSplash) return <SplashScreen />;
+  if (showSplash) return <SplashScreen onComplete={handleSplashComplete} />;
   if (!user) return <LoginScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   if (!roomCode) return <HomeScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   
