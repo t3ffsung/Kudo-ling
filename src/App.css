@@ -8,6 +8,7 @@ body {
   overflow-x: hidden; 
   background: radial-gradient(circle at top center, #1e3a8a, #0f172a, #020617);
   background-attachment: fixed;
+  /* PREVENTS ALL PINCH-TO-ZOOM AND DOUBLE-TAP-TO-ZOOM ON MOBILE */
   touch-action: manipulation; 
   overscroll-behavior: none;
 }
@@ -99,6 +100,7 @@ body {
   100% { filter: drop-shadow(0 0 25px #fbbf24); transform: translateY(-8px) scale(1.05) rotate(5deg); } 
 }
 
+/* BIG MAIN BUTTONS */
 .home-actions { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 400px; margin-bottom: 30px; z-index: 10; padding: 0 20px;}
 .btn-huge { 
   display: flex; align-items: center; justify-content: center; gap: 10px; 
@@ -221,19 +223,17 @@ body {
 /* =========================================
    6. GAME LAYOUT & FLUID MOBILE RESPONSIVENESS
 ========================================= */
-
-/* FIX: Ensure the entire layout is strictly anchored, top to bottom */
 .game-wrapper { 
   display: flex; justify-content: center; align-items: center; padding: 0; 
   background: radial-gradient(circle at top right, #1e293b, #0f172a, #000000); 
   height: 100dvh; width: 100vw; overflow: hidden; 
 }
 .game-container { 
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between; 
-  width: 100%; height: 100%; max-width: 550px; padding: 15px 0 20px 0; 
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; 
+  width: 100%; height: 100%; max-width: 550px; padding: 15px 0 0 0; 
 }
 
-.top-bar { display: flex; gap: 15px; align-items: center; width: 100%; justify-content: flex-end; padding: 0 15px;}
+.top-bar { display: flex; gap: 15px; align-items: center; margin-bottom: 10px; width: 100%; justify-content: flex-end; padding: 0 15px;}
 .pot-display { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.3); color: white; box-shadow: 0 0 15px rgba(251,191,36,0.1); padding: 10px 20px; border-radius: 16px; font-size: 15px; font-weight: 700; border: 1px solid rgba(251,191,36,0.3); }
 .pot-display strong { color: #fbbf24; font-size: 20px; margin-left: 8px;}
 .settings-icon-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; width: 48px; height: 48px; font-size: 22px; cursor: pointer; transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -241,12 +241,19 @@ body {
 
 .board-scaler { transform-origin: top center; display: flex; justify-content: center; width: 100%; margin: 5px 0; }
 
-/* FIX: margin-top: auto forces this entire section to lock to the absolute bottom of your screen */
-.dice-and-chat-controls { display: flex; flex-direction: column; align-items: center; margin-top: auto; width: 100%; z-index: 10; }
+.dice-and-chat-controls { display: flex; flex-direction: column; align-items: center; margin-top: 10px; width: 100%; z-index: 10; }
 .btn-chat-toggle { background: linear-gradient(135deg, #38bdf8, #0284c7); border: 1px solid #7dd3fc; color: white; box-shadow: 0 6px 20px rgba(2,132,199,0.3); }
 
-.action-buttons { display: flex; flex-direction: row; gap: 15px; margin-top: 15px; margin-bottom: max(10px, env(safe-area-inset-bottom)); align-items: center; flex-wrap: nowrap; justify-content: center; width: 100%; max-width: 450px; padding: 0 15px; }
+.action-buttons { display: flex; flex-direction: row; gap: 15px; margin-top: 15px; align-items: center; flex-wrap: nowrap; justify-content: center; width: 100%; max-width: 450px; padding: 0 15px; }
 .action-buttons .btn { flex: 1; padding: 18px 0; margin: 0; font-size: 15px; }
+
+/* FIX: I removed the conflicting transform: scale from the media query here. 
+   React now controls the scale flawlessly! */
+@media (max-width: 600px) {
+  .game-container { padding: 5px 0 15px 0; }
+  .top-bar { margin-bottom: 0px; }
+  .dice-and-chat-controls { margin-top: auto; }
+}
 
 @media (max-width: 500px) {
   .top-bar { flex-wrap: wrap; justify-content: center;}
@@ -367,13 +374,14 @@ body {
 ========================================= */
 .chat-overlay-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; pointer-events: none; z-index: 2000; display: flex; justify-content: center; align-items: flex-end; }
 
-/* FIX: Solidified the container so it doesn't clip, and removed the restrictive overflow */
 .chat-container { 
   pointer-events: auto; width: 100%; max-width: 600px; 
-  background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-radius: 25px 25px 0 0; box-shadow: 0px -10px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; 
+  height: auto !important; max-height: 85dvh !important; 
+  background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-radius: 25px 25px 0 0; box-shadow: 0px -10px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.2); animation: slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
   padding-bottom: max(15px, env(safe-area-inset-bottom)); 
 }
+@keyframes slide-up { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
 
 .btn-close-chat { background: transparent; border: none; color: white; font-size: 22px; cursor: pointer; transition: 0.2s; }
 .btn-close-chat:hover { transform: scale(1.2); color: #ef4444;}
@@ -393,15 +401,14 @@ body {
 .voice-bubble { cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; }
 .voice-bubble:hover { opacity: 0.8; }
 
-/* FIX: Standardized the background and padding for the chat input panels */
-.chat-input-area, .chat-panel { padding: 20px 15px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.1); }
+.chat-input-area, .chat-panel { padding: 15px; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(255,255,255,0.1); }
 .chat-input-area { display: flex; }
 .chat-input-area input { flex: 1; padding: 12px 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 25px; outline: none; transition: 0.3s; font-size: 15px;}
 .chat-input-area input:focus { border-color: #38bdf8; background: rgba(0,0,0,0.5);}
 .chat-input-area button { background: linear-gradient(135deg, #10b981, #047857); color: white; border: none; width: 45px; height: 45px; margin-left: 10px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 18px; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
 
-/* FIX: Re-added scrolling and max height so the presets can take up half the screen comfortably */
-.voice-panel { display: flex; flex-wrap: wrap; gap: 10px; overflow-y: auto; max-height: 50vh; justify-content: center;}
+/* FIX 3: Increased the max-height massively so the voice presets have tons of space to flow */
+.voice-panel { display: flex; flex-wrap: wrap; gap: 8px; overflow-y: auto; max-height: 60vh; justify-content: center;}
 .voice-preset-btn { padding: 10px 14px; border-radius: 14px; font-size: 13px; font-weight: 800; cursor: pointer; transition: 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .voice-preset-btn.male { background: rgba(14, 165, 233, 0.2) !important; color: #7dd3fc !important; border: 1px solid #38bdf8 !important; }
 .voice-preset-btn.female { background: rgba(236, 72, 153, 0.2) !important; color: #f9a8d4 !important; border: 1px solid #f472b6 !important; }
