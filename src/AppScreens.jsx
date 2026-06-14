@@ -5,35 +5,50 @@ import { CustomAlert, HostJoinModal, FriendsModal, ProfileModal, LeaderboardModa
 import { TURN_ORDER, VOICE_PRESETS, EMOJIS, normalizeTokens } from './constants';
 
 export const SplashScreen = ({ onComplete }) => {
-  // FAILSAFE: Force the app to move forward after 6 seconds 
-  // just in case the video gets completely blocked or fails to load.
-  useEffect(() => {
-    const fallbackTimer = setTimeout(() => {
-      onComplete();
-    }, 6000); 
-    return () => clearTimeout(fallbackTimer);
-  }, [onComplete]);
+  const [hasTapped, setHasTapped] = useState(false);
+  const videoRef = useRef(null);
 
-  const handleManualPlay = (e) => {
-    const video = document.getElementById('splash-vid');
-    if (video) video.play().catch(err => console.log("Playback still blocked:", err));
+  const handleStart = () => {
+    setHasTapped(true);
+    
+    if (videoRef.current) {
+      // Force volume up and play immediately on the trusted click
+      videoRef.current.volume = 1.0; 
+      const playPromise = videoRef.current.play();
+      
+      // Handle strict browser blocking gracefully
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error("Browser strictly blocked the video:", error);
+          onComplete(); // Skip to game so the screen doesn't freeze
+        });
+      }
+    }
   };
 
   return (
-    <div className="splash-screen" onClick={handleManualPlay} style={{ cursor: 'pointer' }}>
-      <p style={{ position: 'absolute', top: '20%', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', letterSpacing: '1px', animation: 'pulse-glow 2s infinite' }}>
-        Tap anywhere to start!
-      </p>
+    <div className="splash-screen">
+      
+      {/* We moved the onClick DIRECTLY to the overlay so the browser trusts it more */}
+      {!hasTapped && (
+        <div className="splash-play-overlay" onClick={handleStart}>
+          <div className="play-pulse-btn">Tap to Start Let's Ludo</div>
+        </div>
+      )}
+
       <video 
-        id="splash-vid"
+        ref={videoRef}
         src="/lets-ludo.mp4" 
-        autoPlay 
         playsInline 
-        className="splash-video"
+        preload="auto" /* Forces the browser to load the video immediately */
+        className={`splash-video ${hasTapped ? 'playing' : 'hidden'}`}
         onEnded={() => {
-          setTimeout(onComplete, 1000);
+          setTimeout(onComplete, 500);
         }}
-        onError={onComplete} // Skip immediately if the file is missing/broken
+        onError={(e) => {
+          console.error("ERROR: Cannot find lets-ludo.mp4! Is it in the 'public' folder?", e);
+          onComplete();
+        }}
       />
     </div>
   );
