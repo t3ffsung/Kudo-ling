@@ -1,25 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import './App.css';
 
-const playRollSound = () => {
-  try {
-    const audio = new Audio('/dice-roll.mp3');
-    audio.playbackRate = 1.8; 
-    audio.play().catch(e => console.log("Audio play failed. Ensure dice-roll.mp3 is in the public folder:", e));
-  } catch (e) { 
-    console.log(e); 
-  }
-};
-
-function Dice({ currentRoll, onRoll, currentPlayer, currentPlayerName, isAnimating, isBot, botRolling, consecutiveSixes, isMyTurn }) {
+function Dice({ currentRoll, onRoll, currentPlayer, currentPlayerName, isAnimating, isBot, botRolling, consecutiveSixes, isMyTurn, playRollSound }) {
   const [localIsRolling, setLocalIsRolling] = useState(false);
   const clickLock = useRef(false);
 
   useEffect(() => {
-    if (botRolling) {
+    if (botRolling && playRollSound) {
       playRollSound();
     }
-  }, [botRolling]);
+  }, [botRolling, playRollSound]);
 
   const isCurrentlyRolling = localIsRolling || botRolling;
   const hasRolled = currentRoll > 0;
@@ -32,7 +22,7 @@ function Dice({ currentRoll, onRoll, currentPlayer, currentPlayerName, isAnimati
     
     clickLock.current = true;
     setLocalIsRolling(true);
-    playRollSound();
+    if (playRollSound) playRollSound();
 
     setTimeout(() => {
       const newValue = Math.floor(Math.random() * 6) + 1;
