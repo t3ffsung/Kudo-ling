@@ -53,10 +53,8 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
     <div className="home-actions">
       <button className="btn-huge btn-multiplayer" onClick={() => uiActions.setActiveModal('host')}><span className="btn-icon">🌍</span> ONLINE MULTIPLAYER</button>
       <button className="btn-huge btn-computer" onClick={() => gameActions.createRoom(true)}><span className="btn-icon">📱</span> VS COMPUTER</button>
-      <div style={{display:'flex', gap:'10px'}}>
-        <button className="btn-huge btn-leaderboard" style={{flex:1}} onClick={() => { gameActions.fetchLeaderboard(); uiActions.setActiveModal('leaderboard'); }}><span className="btn-icon">🏆</span> RANKINGS</button>
-        <button className="btn-huge btn-friends" style={{flex:1, background: '#a855f7'}} onClick={() => uiActions.setActiveModal('friends')}><span className="btn-icon">👥</span> FRIENDS</button>
-      </div>
+      <button className="btn-huge btn-leaderboard" onClick={() => { gameActions.fetchLeaderboard(); uiActions.setActiveModal('leaderboard'); }}><span className="btn-icon">🏆</span> RANKINGS</button>
+      <button className="btn-huge btn-friends" onClick={() => uiActions.setActiveModal('friends')}><span className="btn-icon">👥</span> FRIENDS</button>
     </div>
 
     <div className="home-bottom-nav">
@@ -65,9 +63,9 @@ export const HomeScreen = ({ uiState, uiActions, gameActions }) => (
     </div>
 
     {uiState.activeModal === 'host' && <HostJoinModal playerSelect={uiState.playerSelect} setPlayerSelect={uiActions.setPlayerSelect} createRoom={gameActions.createRoom} joinInput={uiState.joinInput} setJoinInput={uiActions.setJoinInput} joinRoom={gameActions.joinRoom} setActiveModal={uiActions.setActiveModal} />}
-    {uiState.activeModal === 'friends' && <FriendsModal profile={uiState.profile} friendCodeInput={uiState.friendCodeInput} setFriendCodeInput={uiActions.setFriendCodeInput} addFriend={gameActions.addFriend} addFriendDirectly={gameActions.addFriendDirectly} setActiveModal={uiActions.setActiveModal} setAlertMsg={uiActions.setAlertMsg} />}
+    {uiState.activeModal === 'friends' && <FriendsModal profile={uiState.profile} friendCodeInput={uiState.friendCodeInput} setFriendCodeInput={uiActions.setFriendCodeInput} challengeFriend={gameActions.challengeFriend} setActiveModal={uiActions.setActiveModal} setAlertMsg={uiActions.setAlertMsg} />}
     {uiState.activeModal === 'profile' && <ProfileModal profile={uiState.profile} setProfile={uiActions.setProfile} user={uiState.user} linkGoogleAccount={gameActions.linkGoogleAccount} handleImageUpload={gameActions.handleImageUpload} saveProfile={gameActions.saveProfile} setActiveModal={uiActions.setActiveModal} />}
-    {uiState.activeModal === 'leaderboard' && <LeaderboardModal leaderboard={uiState.leaderboard} user={uiState.user} addFriendDirectly={gameActions.addFriendDirectly} setActiveModal={uiActions.setActiveModal} />}
+    {uiState.activeModal === 'leaderboard' && <LeaderboardModal leaderboard={uiState.leaderboard} user={uiState.user} profile={uiState.profile} challengeFriend={gameActions.challengeFriend} addFriendDirectly={gameActions.addFriendDirectly} setActiveModal={uiActions.setActiveModal} />}
     {uiState.activeModal === 'settings' && <SettingsModal bgmVolume={uiState.bgmVolume} setBgmVolume={uiActions.setBgmVolume} isMusicMuted={uiState.isMusicMuted} setIsMusicMuted={uiActions.setIsMusicMuted} isSfxMuted={uiState.isSfxMuted} setIsSfxMuted={uiActions.setIsSfxMuted} setActiveModal={uiActions.setActiveModal} />}
   </div>
 );
@@ -125,21 +123,18 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   const attackingToken = gameState?.attackingToken || null;
   const isMyTurn = players?.[currentPlayer]?.uid === user?.uid;
 
-  // --- DYNAMIC MOBILE BOARD SCALING ---
   const [boardScale, setBoardScale] = useState(1);
   
   useEffect(() => {
     const handleResize = () => {
       const screenW = window.innerWidth;
-      // 520px is the exact pixel width of the board. 
-      // We divide by 530 to guarantee a safe 5px margin on both sides so it never touches the absolute edge.
       if (screenW < 530) {
         setBoardScale(screenW / 530);
       } else {
         setBoardScale(1);
       }
     };
-    handleResize(); // Run once on mount
+    handleResize(); 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -153,7 +148,6 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           <button className="settings-icon-btn" onClick={() => uiActions.setActiveModal('settings')}>⚙️</button>
         </div>
 
-        {/* Applied perfectly calculated scale directly via React */}
         <div className="board-scaler" style={{ transform: `scale(${boardScale})`, height: `${520 * boardScale}px` }}>
           <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} />
         </div>
