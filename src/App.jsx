@@ -241,11 +241,21 @@ function App() {
     const snapshot = await get(usersRef);
     if (snapshot.exists()) {
       const usersObj = snapshot.val();
-      const usersArray = Object.values(usersObj).sort((a, b) => (b.coins || 0) - (a.coins || 0)).slice(0, 50); 
+      // Inject uid into each object before sorting
+      const usersArray = Object.entries(usersObj)
+        .map(([uid, data]) => ({ ...data, uid }))
+        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .slice(0, 50); 
       setLeaderboard(usersArray);
     }
   };
 
+  // ADD THIS FUNCTION right below fetchLeaderboard:
+  const addFriendDirectly = async (friendUid, friendName, friendPhoto) => {
+    if (friendUid === user.uid) return setAlertMsg("You can't add yourself!");
+    await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: friendName, photoURL: friendPhoto });
+    setAlertMsg(`${friendName} added to friends!`);
+  };
   useEffect(() => {
     if (gameState?.winner && roomCode && profile && user) {
       const myPlayer = Object.entries(gameState.players || {}).find(([_, p]) => p.uid === user.uid);
@@ -801,7 +811,10 @@ function App() {
                   ))}
                 </div>
               </div>
-              
+              <div style={{background:'rgba(255,255,255,0.05)', padding:'10px', borderRadius:'10px', width:'100%', marginBottom:'15px', textAlign: 'center'}}>
+                <p style={{margin:0, color:'#94a3b8', fontSize:'12px'}}>Your Friend Code:</p>
+                <h3 style={{margin:'5px 0', color: '#fbbf24', letterSpacing:'2px'}}>{profile?.friendCode}</h3>
+              </div>
               <label>Nickname:</label>
               <input className="modal-input" value={profile?.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} />
               
@@ -835,24 +848,25 @@ function App() {
         )}
 
         {activeModal === 'leaderboard' && (
-          <div className="modal-overlay">
-            <div className="modal-content leaderboard-modal">
-              <h2>🏆 Top 50 Players</h2>
-              <div className="leaderboard-list">
-                {leaderboard.map((u, i) => (
-                  <div key={i} className={`lb-item ${u.displayName === profile?.displayName ? 'is-me' : ''}`}>
+         <div className="leaderboard-list">
+                {leaderboard.map((u, i) => {
+                  const isMe = u.uid === user?.uid;
+                  return (
+                  <div key={i} className={`lb-item ${isMe ? 'is-me' : ''}`}>
                     <span className="lb-rank">#{i+1}</span>
                     <img src={u.photoURL || 'https://via.placeholder.com/30'} alt="pic" />
-                    <span className="lb-name">{u.country || '🌍'} {u.displayName || 'Unknown'}</span>
-                    <span className="lb-coins">{u.coins} 🪙</span>
+                    <div className="lb-details">
+                      <span className="lb-name">{u.country || '🌍'} {u.displayName || 'Unknown'}</span>
+                      <span className="lb-coins">{u.coins} 🪙</span>
+                    </div>
+                    {!isMe && (
+                       <button className="btn-add-friend-small" onClick={() => addFriendDirectly(u.uid, u.displayName, u.photoURL)}>
+                         +👤
+                       </button>
+                    )}
                   </div>
-                ))}
+                )})}
               </div>
-              <button className="btn-close" onClick={() => setActiveModal(null)}>Close</button>
-            </div>
-          </div>
-        )}
-
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
