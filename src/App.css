@@ -8,6 +8,9 @@ body {
   overflow-x: hidden; 
   background: radial-gradient(circle at top center, #1e3a8a, #0f172a, #020617);
   background-attachment: fixed;
+  /* Disable mobile pinch-to-zoom and pull-to-refresh */
+  touch-action: manipulation; 
+  overscroll-behavior: none;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -98,7 +101,7 @@ body {
   100% { filter: drop-shadow(0 0 25px #fbbf24); transform: translateY(-8px) scale(1.05) rotate(5deg); } 
 }
 
-/* BIG MAIN BUTTONS - FIXED SHAPE AND SIZE */
+/* BIG MAIN BUTTONS */
 .home-actions { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 400px; margin-bottom: 30px; z-index: 10; padding: 0 20px;}
 .btn-huge { 
   display: flex; align-items: center; justify-content: center; gap: 10px; 
@@ -242,13 +245,15 @@ body {
 
 /* Mathematical precision scaling for mobile phones to stretch board safely without scrolling */
 @media (max-width: 600px) {
-  .game-wrapper { padding: 5px; gap: 10px; }
-  .top-bar { margin-bottom: 5px; }
-  .action-buttons { margin-top: 5px; }
+  /* Removed padding completely to stop side-scrolling entirely */
+  .game-wrapper { padding: 0px; gap: 5px; } 
+  .top-bar { margin-bottom: 5px; margin-top: 10px; padding-right: 10px; }
+  .action-buttons { margin-top: 5px; padding-bottom: 20px; }
   .board-scaler { 
-    transform: scale(min(1, calc(95vw / 536))); 
+    /* 100vw allows it to safely take the entire width of the phone. 550 gives a tiny safety buffer. */
+    transform: scale(min(1, calc(100vw / 550))); 
     transform-origin: top center;
-    height: calc(536px * min(1, calc(95vw / 536))); 
+    height: calc(540px * min(1, calc(100vw / 550))); 
     margin-bottom: 0; 
   } 
 }
@@ -370,14 +375,14 @@ body {
 .dice-status { margin-top: 15px; font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-align: center; color: #f8fafc;}
 
 /* =========================================
-   10. CHAT OVERLAY SYSTEM (Enlarged)
+   10. CHAT OVERLAY SYSTEM (Massively Enlarged)
 ========================================= */
 .chat-overlay-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; pointer-events: none; z-index: 2000; display: flex; justify-content: center; align-items: flex-end; }
 
-/* Increased height dynamically using dvh */
+/* Increased height dynamically to take up 70% of the screen */
 .chat-container { 
   pointer-events: auto; width: 100%; max-width: 600px; 
-  height: 55dvh !important; min-height: 350px !important; max-height: 60dvh !important; 
+  height: 70dvh !important; min-height: 400px !important; max-height: 85dvh !important; 
   background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-radius: 25px 25px 0 0; box-shadow: 0px -10px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.2); animation: slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
 }
