@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
-import { ref, onValue, update, push, set, get, query, orderByChild, limitToLast } from "firebase/database";
-import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup } from "firebase/auth";
+import { ref, onValue, update, push, set, get } from "firebase/database";
+import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
@@ -86,7 +86,6 @@ const normalizeTokens = (firebaseTokens) => {
   return norm;
 };
 
-// --- CUSTOM ALERT COMPONENT ---
 const CustomAlert = ({ msg, onClose }) => {
   if (!msg) return null;
   return (
@@ -105,12 +104,15 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [activeModal, setActiveModal] = useState(null); 
   const [leaderboard, setLeaderboard] = useState([]);
-  const [alertMsg, setAlertMsg] = useState(null); // Replaces window.alert
+  const [alertMsg, setAlertMsg] = useState(null);
   
   const [roomCode, setRoomCode] = useState(null);
   const [joinInput, setJoinInput] = useState("");
   const [playerSelect, setPlayerSelect] = useState(4);
   const [gameState, setGameState] = useState(null);
+  
+  // Chat Overlay States
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState('text');
   const [chatMsg, setChatMsg] = useState("");
   
@@ -132,7 +134,12 @@ function App() {
 
   useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
 
+  // Handle Auth with Redirect Catch
   useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect login error:", error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -160,8 +167,14 @@ function App() {
   }, []);
 
   const loginWithGoogle = async () => {
-    try { await signInWithPopup(auth, googleProvider); } 
-    catch (e) { console.error(e); setAlertMsg("Google Login Failed."); }
+    try { 
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider); 
+      }
+    } catch (e) { console.error(e); setAlertMsg("Google Login Failed."); }
   };
 
   const loginAsGuest = async () => {
@@ -171,32 +184,38 @@ function App() {
 
   const linkGoogleAccount = async () => {
     try {
-      const result = await linkWithPopup(auth.currentUser, googleProvider);
-      const linkedUser = result.user;
-      const updates = {
-        displayName: linkedUser.displayName || profile.displayName,
-        photoURL: linkedUser.photoURL || profile.photoURL
-      };
-      await update(ref(db, `users/${linkedUser.uid}`), updates);
-      setProfile({...profile, ...updates});
-      setAlertMsg("Account successfully secured with Google!");
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        await linkWithRedirect(auth.currentUser, googleProvider);
+      } else {
+        const result = await linkWithPopup(auth.currentUser, googleProvider);
+        const linkedUser = result.user;
+        const updates = {
+          displayName: linkedUser.displayName || profile.displayName,
+          photoURL: linkedUser.photoURL || profile.photoURL
+        };
+        await update(ref(db, `users/${linkedUser.uid}`), updates);
+        setProfile({...profile, ...updates});
+        setAlertMsg("Account successfully secured with Google!");
+      }
     } catch (e) {
       setAlertMsg("Failed to link account. It might already be in use.");
     }
   };
 
+  // Client-side sorting bypasses Firebase Index Rules allowing all users to show
   const fetchLeaderboard = async () => {
-    const usersRef = query(ref(db, 'users'), orderByChild('coins'), limitToLast(50));
+    const usersRef = ref(db, 'users');
     const snapshot = await get(usersRef);
     if (snapshot.exists()) {
-      const usersArray = [];
-      snapshot.forEach(child => { usersArray.unshift(child.val()); });
+      const usersObj = snapshot.val();
+      const usersArray = Object.values(usersObj)
+        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .slice(0, 50); // Get top 50
       setLeaderboard(usersArray);
     }
   };
 
-  // Automated Payout Listener
-  // If the game declares a winner, the winner's client claims the pot automatically
   useEffect(() => {
     if (gameState?.winner && roomCode && profile && user) {
       const myPlayer = Object.entries(gameState.players || {}).find(([_, p]) => p.uid === user.uid);
@@ -271,9 +290,11 @@ function App() {
         lastPlayedChatRef.current = latestChat.timestamp;
         playChatVoice(latestChat.audioId);
       }
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (isChatOpen) {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     }
-  }, [gameState?.chat]);
+  }, [gameState?.chat, isChatOpen]);
 
   const createRoom = async (vsBot = false) => {
     if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Not enough coins! You need ${BET_AMOUNT} coins to play.`);
@@ -361,7 +382,6 @@ function App() {
   };
 
   const leaveLobby = async () => {
-    // Refund the entry fee if leaving before game is complete
     const winRef = ref(db, `users/${user.uid}`);
     const snap = await get(winRef);
     if(snap.exists()) {
@@ -375,7 +395,6 @@ function App() {
     setIsHost(false);
   };
 
-  // Forfeit triggers a win for the remaining player
   const handleForfeit = async () => {
     if (gameState && roomCode && user) {
        let myColor = null;
@@ -390,7 +409,7 @@ function App() {
           let updates = { activeColors: remaining };
           
           if (remaining.length === 1) {
-             updates.winner = remaining[0]; // Triggers the auto-payout for them
+             updates.winner = remaining[0]; 
           } else if (remaining.length === 0) {
              updates.winner = "Draw"; 
           } else if (gameState.currentPlayer === myColor) {
@@ -659,7 +678,6 @@ function App() {
     setAlertMsg("Profile Successfully Updated!");
   };
 
-  // --- LOGIN SCREEN ---
   if (!user) {
     return (
       <div className="login-screen">
@@ -683,13 +701,11 @@ function App() {
     );
   }
 
-  // --- VIBRANT HOMEPAGE ---
   if (!roomCode) {
     return (
       <div className="home-container">
         <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
         
-        {/* Floating Elements Background */}
         <div className="floating-bg-item token-float-1"></div>
         <div className="floating-bg-item dice-float-1">🎲</div>
         <div className="floating-bg-item coin-float-1">🪙</div>
@@ -745,20 +761,16 @@ function App() {
             <div className="modal-content">
               <h2>Multiplayer Room</h2>
               <p className="fee-text">Entry Fee: {BET_AMOUNT} 🪙</p>
-              
               <div className="player-select">
                 {[2, 3, 4].map(num => (
                   <button key={num} className={`p-btn ${playerSelect === num ? 'active' : ''}`} onClick={() => setPlayerSelect(num)}>{num} Players</button>
                 ))}
               </div>
-
               <button className="btn btn-primary" style={{width: '100%'}} onClick={() => createRoom(false)}>Host Game</button>
-              
               <hr className="divider"/>
               <h3>Join with Code</h3>
               <input className="modal-input" placeholder="Enter 4-letter code" maxLength={4} value={joinInput} onChange={(e) => setJoinInput(e.target.value.toUpperCase())} />
               <button className="btn btn-join" style={{width: '100%', marginTop: '10px'}} onClick={joinRoom}>Join Game</button>
-              
               <button className="btn-close" onClick={() => setActiveModal(null)}>Cancel</button>
             </div>
           </div>
@@ -768,7 +780,6 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content">
               <h2>Player Profile</h2>
-              
               <div className="avatar-selection-area">
                 <img src={profile?.photoURL} alt="Profile" className="profile-large" />
                 <p style={{fontSize: '12px', color: '#94a3b8', margin: '5px 0'}}>Select Avatar:</p>
@@ -778,10 +789,15 @@ function App() {
                   ))}
                 </div>
               </div>
-              
               <label>Nickname:</label>
               <input className="modal-input" value={profile?.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} />
-              
+              <label>Gender:</label>
+              <select className="modal-input" value={profile?.gender || 'Unspecified'} onChange={(e) => setProfile({...profile, gender: e.target.value})}>
+                <option value="Unspecified">Unspecified</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+
               {user.isAnonymous && (
                  <button className="btn btn-google" style={{width:'100%', marginBottom:'20px', padding:'10px'}} onClick={linkGoogleAccount}>
                     <img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Secure Account with Google
@@ -822,26 +838,22 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content">
               <h2>⚙️ Global Settings</h2>
-              
               <div className="settings-row">
                 <span>Music Volume</span>
                 <input type="range" min="0" max="1" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(parseFloat(e.target.value))} />
               </div>
-
               <div className="settings-row">
-                <span>Mute Music</span>
+                <span>Mute Music completely</span>
                 <button className={`toggle-btn ${isMusicMuted ? 'off' : 'on'}`} onClick={() => setIsMusicMuted(!isMusicMuted)}>
                   {isMusicMuted ? 'Muted' : 'Playing'}
                 </button>
               </div>
-
               <div className="settings-row">
                 <span>Sound Effects (SFX)</span>
                 <button className={`toggle-btn ${isSfxMuted ? 'off' : 'on'}`} onClick={() => setIsSfxMuted(!isSfxMuted)}>
                   {isSfxMuted ? 'Muted' : 'Active'}
                 </button>
               </div>
-
               <button className="btn-close" onClick={() => setActiveModal(null)}>Done</button>
             </div>
           </div>
@@ -854,7 +866,6 @@ function App() {
   const players = gameState?.players || {};
   const isGameReady = Object.values(players).every(p => p.name !== "Waiting...");
 
-  // --- NEW VIBRANT WAITING LOBBY SCREEN ---
   if (!isGameReady) {
     return (
       <div className="lobby-container">
@@ -862,7 +873,6 @@ function App() {
         <div className="lobby-card waiting-card">
           <h2 className="glitch-text">ROOM: <span>{roomCode}</span></h2>
           <p className="lobby-subtitle">Share this code to invite players!</p>
-          
           <div className="waiting-players-grid">
             {TURN_ORDER.filter(c => players[c]).map(color => {
               const p = players[color];
@@ -875,10 +885,8 @@ function App() {
               )
             })}
           </div>
-          
           <div className="spinner"></div>
           <p style={{marginTop:'20px', color:'#94a3b8', fontSize: '14px', fontWeight: 'bold'}}>Waiting for challengers...</p>
-          
           <button className="btn btn-leave" style={{marginTop:'25px', width:'100%'}} onClick={leaveLobby}>Cancel & Refund</button>
         </div>
       </div>
@@ -917,20 +925,23 @@ function App() {
           />
         </div>
         
-        <Dice 
-          currentRoll={currentRoll} 
-          onRoll={handleRoll} 
-          currentPlayer={currentPlayer} 
-          currentPlayerName={players?.[currentPlayer]?.name || currentPlayer} 
-          isAnimating={isAnimating} 
-          isBot={players?.[currentPlayer]?.isBot || false} 
-          botRolling={botRolling}
-          consecutiveSixes={consecutiveSixes}
-          isMyTurn={isMyTurn}
-        /> 
-
-        <div className="action-buttons">
-          <button className="btn btn-leave" onClick={handleForfeit}>Forfeit Match</button>
+        <div className="dice-and-chat-controls">
+          <Dice 
+            currentRoll={currentRoll} 
+            onRoll={handleRoll} 
+            currentPlayer={currentPlayer} 
+            currentPlayerName={players?.[currentPlayer]?.name || currentPlayer} 
+            isAnimating={isAnimating} 
+            isBot={players?.[currentPlayer]?.isBot || false} 
+            botRolling={botRolling}
+            consecutiveSixes={consecutiveSixes}
+            isMyTurn={isMyTurn}
+          /> 
+          
+          <div className="action-buttons">
+            <button className="btn btn-chat-toggle" onClick={() => setIsChatOpen(true)}>💬 Open Chat</button>
+            <button className="btn btn-leave" onClick={handleForfeit}>Forfeit Match</button>
+          </div>
         </div>
 
         {winner && (
@@ -966,52 +977,60 @@ function App() {
             </div>
           </div>
         )}
-      </div>
 
-      <div className="chat-container">
-        <div className="chat-header">
-          Comms Uplink
-          <div className="chat-tabs">
-            <button className={`tab-btn ${chatMode === 'text' ? 'active' : ''}`} onClick={() => setChatMode('text')}>💬</button>
-            <button className={`tab-btn ${chatMode === 'voice' ? 'active' : ''}`} onClick={() => setChatMode('voice')}>🎤</button>
-            <button className={`tab-btn ${chatMode === 'emoji' ? 'active' : ''}`} onClick={() => setChatMode('emoji')}>😀</button>
-          </div>
-        </div>
-        
-        <div className="chat-messages">
-          {chatList.map((msg, i) => (
-            <div key={i} className={`chat-msg ${msg.sender === profile?.displayName ? 'self' : ''} ${msg.type === 'emoji' ? 'emoji-msg' : ''}`}>
-              {msg.sender !== profile?.displayName && <div className="chat-sender">{msg.sender}</div>}
-              {msg.type === 'voice' ? (
-                 <div className="voice-bubble" onClick={() => playChatVoice(msg.audioId)}>🔊 {msg.text}</div>
-              ) : ( <div>{msg.text}</div> )}
+        {/* --- THE NEW CHAT OVERLAY --- */}
+        {isChatOpen && (
+          <div className="chat-overlay-backdrop">
+            <div className="chat-container">
+              <div className="chat-header">
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span>Comms Uplink</span>
+                  <button className="btn-close-chat" onClick={() => setIsChatOpen(false)}>✖</button>
+                </div>
+                <div className="chat-tabs">
+                  <button className={`tab-btn ${chatMode === 'text' ? 'active' : ''}`} onClick={() => setChatMode('text')}>💬</button>
+                  <button className={`tab-btn ${chatMode === 'voice' ? 'active' : ''}`} onClick={() => setChatMode('voice')}>🎤</button>
+                  <button className={`tab-btn ${chatMode === 'emoji' ? 'active' : ''}`} onClick={() => setChatMode('emoji')}>😀</button>
+                </div>
+              </div>
+              
+              <div className="chat-messages">
+                {chatList.map((msg, i) => (
+                  <div key={i} className={`chat-msg ${msg.sender === profile?.displayName ? 'self' : ''} ${msg.type === 'emoji' ? 'emoji-msg' : ''}`}>
+                    {msg.sender !== profile?.displayName && <div className="chat-sender">{msg.sender}</div>}
+                    {msg.type === 'voice' ? (
+                       <div className="voice-bubble" onClick={() => playChatVoice(msg.audioId)}>🔊 {msg.text}</div>
+                    ) : ( <div>{msg.text}</div> )}
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              {chatMode === 'text' && (
+                <form className="chat-input-area" onSubmit={(e) => handleSendChat(e, 'text')}>
+                  <input placeholder="Transmit message..." value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} />
+                  <button type="submit">➜</button>
+                </form>
+              )}
+
+              {chatMode === 'voice' && (
+                <div className="chat-panel voice-panel">
+                  {VOICE_PRESETS.map((preset) => (
+                    <button key={preset.id} className={`voice-preset-btn ${preset.gender === 'm' ? 'male' : 'female'}`} onClick={() => handleSendChat(null, 'voice', preset)}>
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {chatMode === 'emoji' && (
+                <div className="chat-panel emoji-panel">
+                  {EMOJIS.map((emoji, index) => (
+                    <button key={index} className="emoji-preset-btn" onClick={() => handleSendChat(null, 'emoji', emoji)}>{emoji}</button>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
-        {chatMode === 'text' && (
-          <form className="chat-input-area" onSubmit={(e) => handleSendChat(e, 'text')}>
-            <input placeholder="Transmit message..." value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} />
-            <button type="submit">➜</button>
-          </form>
-        )}
-
-        {chatMode === 'voice' && (
-          <div className="chat-panel voice-panel">
-            {VOICE_PRESETS.map((preset) => (
-              <button key={preset.id} className={`voice-preset-btn ${preset.gender === 'm' ? 'male' : 'female'}`} onClick={() => handleSendChat(null, 'voice', preset)}>
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {chatMode === 'emoji' && (
-          <div className="chat-panel emoji-panel">
-            {EMOJIS.map((emoji, index) => (
-              <button key={index} className="emoji-preset-btn" onClick={() => handleSendChat(null, 'emoji', emoji)}>{emoji}</button>
-            ))}
           </div>
         )}
       </div>
