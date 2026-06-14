@@ -44,7 +44,22 @@ function App() {
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
-  const handleSplashComplete = () => {
+  // THIS RUNS AFTER THE SPLASH SCREEN / VIDEO FINISHES
+  const handleSplashComplete = async (enteredName) => {
+    localStorage.setItem('ludo_player_name', enteredName); // Save for next time
+    
+    // If they aren't logged in, log them in as a guest automatically!
+    if (!auth.currentUser) {
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.error("Guest login failed", e);
+      }
+    } else {
+      // If they are already logged in, update their name in the database
+      update(ref(db, `users/${auth.currentUser.uid}`), { displayName: enteredName });
+    }
+    
     setShowSplash(false);
   };
 
@@ -76,8 +91,14 @@ function App() {
             if (!data.friendCode) { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); update(ref(db, `users/${currentUser.uid}`), { friendCode: code }); data.friendCode = code; }
             setProfile(data);
           } else {
+            // Apply the name they just entered on the first screen
+            const savedName = localStorage.getItem('ludo_player_name');
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const newProfile = { displayName: currentUser.displayName || `Player_${Math.floor(Math.random()*1000)}`, photoURL: currentUser.photoURL || AVATARS[0], coins: 1000, gender: 'Unspecified', country: '🌍', friendCode: code, friends: {}, wins: 0, gamesPlayed: 0 };
+            const newProfile = { 
+              displayName: savedName || currentUser.displayName || `Player_${Math.floor(Math.random()*1000)}`, 
+              photoURL: currentUser.photoURL || AVATARS[0], 
+              coins: 1000, gender: 'Unspecified', country: '🌍', friendCode: code, friends: {}, wins: 0, gamesPlayed: 0 
+            };
             set(ref(db, `users/${currentUser.uid}`), newProfile); setProfile(newProfile);
           }
         });
@@ -360,10 +381,16 @@ function App() {
   const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
   const gameActions = { loginWithGoogle, loginAsGuest, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
+  // 1. App Loads -> Show Splash Screen (Which asks for name first)
   if (showSplash) return <SplashScreen onComplete={handleSplashComplete} />;
+  
+  // 2. Fallback Login Screen (Only if they explicitly log out)
   if (!user) return <LoginScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  
+  // 3. Home Screen (User drops straight in here after intro!)
   if (!roomCode) return <HomeScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   
+  // 4. Game Lobby & Match
   const players = gameState?.players || {};
   if (!Object.values(players).every(p => p.name !== "Waiting...")) return <LobbyScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
   
