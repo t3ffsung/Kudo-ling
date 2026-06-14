@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
 import { ref, onValue, update, push, set, get } from "firebase/database";
-import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
@@ -133,7 +133,12 @@ function App() {
 
   useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
 
+  // Handle Auth with Redirect Catch
   useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect login error:", error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -162,34 +167,44 @@ function App() {
 
   const loginWithGoogle = async () => {
     try { 
-      // Force popup method to guarantee cross-device consistency without page refresh drops
-      await signInWithPopup(auth, googleProvider); 
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      // Ensure we use redirect on mobile IF deployed, but popup on PC
+      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider); 
+      }
     } catch (e) { 
       console.error(e); 
-      setAlertMsg(`Google Login Error: ${e.message}`); 
+      if (e.code === 'auth/unauthorized-domain') {
+        setAlertMsg("Firebase Auth Blocked: You must deploy this to Netlify first! Local network IPs (192.168.x.x) are not allowed by Google Login.");
+      } else {
+        setAlertMsg(`Google Login Error: ${e.message}`); 
+      }
     }
   };
 
   const loginAsGuest = async () => {
-    try { 
-      await signInAnonymously(auth); 
-    } catch (e) { 
-      console.error(e); 
-      setAlertMsg(`Guest Login Error: ${e.message} (Did you enable Anonymous Auth in Firebase?)`); 
-    }
+    try { await signInAnonymously(auth); }
+    catch (e) { setAlertMsg(`Guest Login Error: ${e.message} (Did you enable Anonymous Auth in Firebase?)`); }
   };
 
   const linkGoogleAccount = async () => {
     try {
-      const result = await linkWithPopup(auth.currentUser, googleProvider);
-      const linkedUser = result.user;
-      const updates = {
-        displayName: linkedUser.displayName || profile.displayName,
-        photoURL: linkedUser.photoURL || profile.photoURL
-      };
-      await update(ref(db, `users/${linkedUser.uid}`), updates);
-      setProfile({...profile, ...updates});
-      setAlertMsg("Account successfully secured with Google!");
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
+        await linkWithRedirect(auth.currentUser, googleProvider);
+      } else {
+        const result = await linkWithPopup(auth.currentUser, googleProvider);
+        const linkedUser = result.user;
+        const updates = {
+          displayName: linkedUser.displayName || profile.displayName,
+          photoURL: linkedUser.photoURL || profile.photoURL
+        };
+        await update(ref(db, `users/${linkedUser.uid}`), updates);
+        setProfile({...profile, ...updates});
+        setAlertMsg("Account successfully secured with Google!");
+      }
     } catch (e) {
       setAlertMsg(`Failed to link account: ${e.message}`);
     }
@@ -286,6 +301,13 @@ function App() {
       }
     }
   }, [gameState?.chat, isChatOpen]);
+
+  const copyRoomCode = () => {
+    if (roomCode) {
+      navigator.clipboard.writeText(roomCode);
+      setAlertMsg("Room code copied to clipboard!");
+    }
+  }
 
   const createRoom = async (vsBot = false) => {
     if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Not enough coins! You need ${BET_AMOUNT} coins to play.`);
@@ -558,17 +580,6 @@ function App() {
           if (hasWonGame) {
             updates.winner = color;
             updates[`scores/${color}`] = (currentState?.scores?.[color] || 0) + 1; 
-            
-            const winnerUid = currentState.players?.[color]?.uid;
-            if (winnerUid && winnerUid === user.uid) {
-               const winRef = ref(db, `users/${user.uid}`);
-               get(winRef).then((snap) => {
-                 if(snap.exists()) {
-                   const uData = snap.val();
-                   update(winRef, { coins: uData.coins + (currentState.pot || 0), wins: uData.wins + 1 });
-                 }
-               });
-            }
           } else {
             if (rollValue === 6 || didCut || stepPos === 999) {
               updates.currentRoll = 0; 
@@ -847,13 +858,13 @@ function App() {
                 <input type="range" min="0" max="1" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(parseFloat(e.target.value))} />
               </div>
               <div className="settings-row">
-                <span>Mute Music completely</span>
+                <span>Mute Music</span>
                 <button className={`toggle-btn ${isMusicMuted ? 'off' : 'on'}`} onClick={() => setIsMusicMuted(!isMusicMuted)}>
                   {isMusicMuted ? 'Muted' : 'Playing'}
                 </button>
               </div>
               <div className="settings-row">
-                <span>Sound Effects (SFX)</span>
+                <span>Sound Effects</span>
                 <button className={`toggle-btn ${isSfxMuted ? 'off' : 'on'}`} onClick={() => setIsSfxMuted(!isSfxMuted)}>
                   {isSfxMuted ? 'Muted' : 'Active'}
                 </button>
@@ -875,8 +886,14 @@ function App() {
       <div className="lobby-container">
         <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
         <div className="lobby-card waiting-card">
-          <h2 className="glitch-text">ROOM: <span>{roomCode}</span></h2>
+          
+          <div className="room-header pot-display" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', fontSize:'28px', padding:'15px', margin:'20px 0'}}>
+            <strong>{roomCode}</strong>
+            <button className="btn-copy" onClick={copyRoomCode}>📋</button>
+          </div>
+
           <p className="lobby-subtitle">Share this code to invite players!</p>
+          
           <div className="waiting-players-grid">
             {TURN_ORDER.filter(c => players[c]).map(color => {
               const p = players[color];
@@ -914,7 +931,10 @@ function App() {
       <div className="game-container">
         
         <div className="top-bar">
-          <div className="room-header">Code: <strong>{roomCode}</strong></div>
+          <div className="room-header" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+            Code: <strong>{roomCode}</strong>
+            <button className="btn-copy-small" onClick={copyRoomCode}>📋</button>
+          </div>
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           <button className="settings-icon-btn" onClick={() => setActiveModal('settings')}>⚙️</button>
         </div>
@@ -956,6 +976,7 @@ function App() {
           </div>
         )}
 
+        {/* IN-GAME SETTINGS MODAL */}
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -981,7 +1002,7 @@ function App() {
           </div>
         )}
 
-        {/* --- COMPACT TRANSPARENT CHAT OVERLAY --- */}
+        {/* --- 40% TRANSPARENT CHAT OVERLAY --- */}
         {isChatOpen && (
           <div className="chat-overlay-backdrop">
             <div className="chat-container">
