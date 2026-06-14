@@ -85,63 +85,35 @@ function App() {
   
   const isProcessingMove = useRef(false);
   const chatEndRef = useRef(null);
+  const audioRef = useRef(null);
+  const monsterAudioRef = useRef(null);
   const lastPlayedChatRef = useRef(null);
   
-  // FIX: Using a Ref for Muting cleanly bypasses any stale state captured by moving pieces or bots.
+  // FIX: This Ref ensures timeouts catch the immediate state of the mute button
   const isSfxMutedRef = useRef(isSfxMuted);
-  useEffect(() => {
-    isSfxMutedRef.current = isSfxMuted;
-  }, [isSfxMuted]);
+  useEffect(() => { isSfxMutedRef.current = isSfxMuted; }, [isSfxMuted]);
 
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
-  // Audio References setup to prevent memory leaks
-  const sfxRefs = useRef({});
-  const audioCtxRef = useRef(null);
-  const bgmRef = useRef(null);
-
-  useEffect(() => {
-    sfxRefs.current.monster = new Audio('/Monster-laugh.mp3');
-    sfxRefs.current.monster.loop = true;
-    sfxRefs.current.roll = new Audio('/dice-roll.mp3');
-    sfxRefs.current.roll.playbackRate = 1.8;
-    sfxRefs.current.chat = new Audio();
-    
-    bgmRef.current = new Audio('/bg-music.mp3');
-    bgmRef.current.loop = true;
-
-    const startAudio = () => { 
-      if (!musicStarted && bgmRef.current) {
-        bgmRef.current.play().then(() => setMusicStarted(true)).catch(()=>{});
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) audioCtxRef.current = new AudioContext();
-      }
-    };
-    startAudio(); 
-    window.addEventListener('click', startAudio);
-    return () => window.removeEventListener('click', startAudio);
-  }, [musicStarted]);
-
+  // Integrated Sound Logic
   const playSound = (type) => {
-    // Uses the useRef value so it always gets the live mute toggle, even inside old timeouts
     if (isSfxMutedRef.current) return;
-    
     try {
+      if (type === 'roll') {
+        const rollAudio = new Audio('/dice-roll.mp3');
+        rollAudio.playbackRate = 1.8;
+        rollAudio.play().catch(()=>{});
+        return;
+      }
       if (type === 'monster') {
-        sfxRefs.current.monster.play().catch(() => {});
+        const monsterAudio = new Audio('/Monster-laugh.mp3');
+        monsterAudio.play().catch(() => {});
         return; 
       }
-      if (type === 'roll') {
-         sfxRefs.current.roll.currentTime = 0;
-         sfxRefs.current.roll.play().catch(() => {});
-         return;
-      }
-      
-      const ctx = audioCtxRef.current;
-      if (!ctx) return;
-      if (ctx.state === 'suspended') ctx.resume();
-  
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
       osc.connect(gainNode);
@@ -164,13 +136,11 @@ function App() {
       }
     } catch (e) {}
   };
-
+  
   const playChatVoice = (audioId) => {
     if (isSfxMutedRef.current) return;
     try {
-      const audio = sfxRefs.current.chat;
-      audio.src = `/${audioId}.mp3`;
-      audio.currentTime = 0;
+      const audio = new Audio(`/${audioId}.mp3`);
       audio.play().catch(() => {});
     } catch(e) {}
   };
@@ -298,26 +268,6 @@ function App() {
     }
   };
 
-  const addFriend = async () => {
-    if (!friendCodeInput || friendCodeInput.length < 6) return setAlertMsg("Invalid code!");
-    if (friendCodeInput === profile.friendCode) return setAlertMsg("Can't add yourself!");
-    
-    const usersRef = ref(db, 'users');
-    const snapshot = await get(usersRef);
-    if (snapshot.exists()) {
-      const usersData = snapshot.val();
-      let foundFriend = null; let friendUid = null;
-      Object.entries(usersData).forEach(([uid, data]) => {
-        if (data.friendCode === friendCodeInput) { foundFriend = data; friendUid = uid; }
-      });
-      if (foundFriend) {
-        await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: foundFriend.displayName, photoURL: foundFriend.photoURL });
-        setAlertMsg("Friend added!");
-        setFriendCodeInput("");
-      } else { setAlertMsg("Player not found!"); }
-    }
-  };
-
   const addFriendDirectly = async (friendUid, friendName, friendPhoto) => {
     if (friendUid === user.uid) return setAlertMsg("You can't add yourself!");
     await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: friendName, photoURL: friendPhoto });
@@ -354,22 +304,24 @@ function App() {
     }
   }, [gameState?.winner, roomCode, user?.uid]);
 
-  // Monster Audio Effect
   useEffect(() => {
-    if (gameState?.attackingToken && !isSfxMutedRef.current) {
-      sfxRefs.current.monster?.play().catch(()=>{});
-    } else if (sfxRefs.current.monster) { 
-      sfxRefs.current.monster.pause(); 
-      sfxRefs.current.monster.currentTime = 0; 
-    }
+    if (!monsterAudioRef.current) { monsterAudioRef.current = new Audio('/Monster-laugh.mp3'); monsterAudioRef.current.loop = true; }
+  }, []);
+
+  useEffect(() => {
+    if (gameState?.attackingToken && !isSfxMuted) monsterAudioRef.current?.play().catch(()=>{});
+    else if (monsterAudioRef.current) { monsterAudioRef.current.pause(); monsterAudioRef.current.currentTime = 0; }
   }, [gameState?.attackingToken, isSfxMuted]);
 
-  // BGM Effect
+  useEffect(() => {
+    if (!audioRef.current) { audioRef.current = new Audio('/bg-music.mp3'); audioRef.current.loop = true; }
+    const startAudio = () => { if (!musicStarted && audioRef.current) audioRef.current.play().then(() => setMusicStarted(true)).catch(()=>{}); };
+    startAudio(); window.addEventListener('click', startAudio);
+    return () => window.removeEventListener('click', startAudio);
+  }, [musicStarted]);
+
   useEffect(() => { 
-    if (bgmRef.current) { 
-      bgmRef.current.volume = bgmVolume; 
-      bgmRef.current.muted = (isMusicMuted || bgmVolume === 0); 
-    }
+    if (audioRef.current) { audioRef.current.volume = bgmVolume; audioRef.current.muted = (isMusicMuted || bgmVolume === 0); }
   }, [bgmVolume, isMusicMuted]);
 
   useEffect(() => {
@@ -677,13 +629,12 @@ function App() {
 
     const currentPlayerKey = state.currentPlayer;
     const isBotTurn = state.players?.[currentPlayerKey]?.isBot;
-    let botTimer1, botTimer2;
 
     if (isBotTurn) {
       if (state.currentRoll === 0 && !state.botRolling) {
         isProcessingMove.current = true;
         update(ref(db, `rooms/${roomCode}`), { botRolling: true }).then(() => {
-           botTimer1 = setTimeout(() => {
+           setTimeout(() => {
              isProcessingMove.current = false; 
              const roll = Math.floor(Math.random() * 6) + 1;
              handleRoll(roll); 
@@ -695,7 +646,7 @@ function App() {
         
         if (validMoves.length > 0) {
           isProcessingMove.current = true;
-          botTimer2 = setTimeout(() => {
+          setTimeout(() => {
             let bestMove = { pos: validMoves[0], score: -1 };
             validMoves.forEach(pos => {
                let score = 0;
@@ -721,10 +672,6 @@ function App() {
         } 
       }
     }
-    return () => {
-      if (botTimer1) clearTimeout(botTimer1);
-      if (botTimer2) clearTimeout(botTimer2);
-    };
   }, [gameState?.currentPlayer, gameState?.currentRoll, gameState?.isAnimating, gameState?.botRolling]);
 
   const saveProfile = () => {
@@ -736,7 +683,6 @@ function App() {
     setAlertMsg("Profile Successfully Updated!");
   };
 
-  // --- LOGIN SCREEN ---
   if (!user) {
     return (
       <div className="login-screen">
@@ -760,13 +706,11 @@ function App() {
     );
   }
 
-  // --- HOMEPAGE ---
   if (!roomCode) {
     return (
       <div className="home-container">
         <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
         
-        {/* Friend Invite Popup Notification */}
         {pendingInvite && (
           <div className="invite-popup">
             <p><strong>{pendingInvite.senderName}</strong> invited you!</p>
@@ -809,12 +753,14 @@ function App() {
           <button className="btn-huge btn-computer" onClick={() => createRoom(true)}>
              <span className="btn-icon">📱</span> VS COMPUTER
           </button>
-          <button className="btn-huge btn-leaderboard" onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
-             <span className="btn-icon">🏆</span> RANKINGS
-          </button>
-          <button className="btn-huge btn-friends" onClick={() => setActiveModal('friends')}>
-             <span className="btn-icon">👥</span> FRIENDS
-          </button>
+          <div style={{display:'flex', gap:'10px'}}>
+            <button className="btn-huge btn-leaderboard" style={{flex:1}} onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
+               <span className="btn-icon">🏆</span> RANKINGS
+            </button>
+            <button className="btn-huge btn-friends" style={{flex:1, background: '#a855f7'}} onClick={() => setActiveModal('friends')}>
+               <span className="btn-icon">👥</span> FRIENDS
+            </button>
+          </div>
         </div>
 
         <div className="home-bottom-nav">
@@ -822,7 +768,6 @@ function App() {
           <button className="nav-btn" onClick={() => signOut(auth)}>🚪 Logout</button>
         </div>
 
-        {/* MODALS */}
         {activeModal === 'host' && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -847,7 +792,6 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content profile-modal-content">
               <h2>👥 Friends List</h2>
-              
               <div style={{background:'rgba(255,255,255,0.05)', padding:'15px', borderRadius:'10px', width:'100%', marginBottom:'20px'}}>
                  <p style={{margin:0, color:'#94a3b8', fontSize:'14px'}}>Your Friend Code:</p>
                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
@@ -870,7 +814,6 @@ function App() {
                   </div>
                 ))}
               </div>
-
               <button className="btn-close" onClick={() => setActiveModal(null)}>Close</button>
             </div>
           </div>
@@ -880,19 +823,14 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content profile-modal-content">
               <h2>Player Profile</h2>
-              
               <div style={{background:'rgba(255,255,255,0.05)', padding:'10px', borderRadius:'10px', width:'100%', marginBottom:'15px', textAlign: 'center'}}>
                 <p style={{margin:0, color:'#94a3b8', fontSize:'12px'}}>Your Friend Code:</p>
                 <h3 style={{margin:'5px 0', color: '#fbbf24', letterSpacing:'2px'}}>{profile?.friendCode}</h3>
               </div>
-
               <div className="avatar-selection-area">
                 <img src={profile?.photoURL} alt="Profile" className="profile-large" />
-                
-                {/* Custom Upload Button */}
                 <input type="file" accept="image/*" onChange={handleImageUpload} id="pic-upload" style={{display:'none'}}/>
                 <label htmlFor="pic-upload" className="btn btn-secondary" style={{fontSize:'12px', padding:'8px 12px'}}>📸 Upload Custom Pic</label>
-                
                 <p style={{fontSize: '12px', color: '#94a3b8', margin: '15px 0 5px'}}>Or Select Avatar:</p>
                 <div className="avatar-grid">
                   {AVATARS.map((url, i) => (
@@ -900,33 +838,27 @@ function App() {
                   ))}
                 </div>
               </div>
-              
               <label>Nickname:</label>
               <input className="modal-input" value={profile?.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} />
-              
               <label>Country:</label>
               <select className="modal-input" value={profile?.country || '🌍'} onChange={(e) => setProfile({...profile, country: e.target.value})}>
                 {COUNTRIES.map(c => <option key={c.name} value={c.flag}>{c.flag} {c.name}</option>)}
               </select>
-
               <label>Gender:</label>
               <select className="modal-input" value={profile?.gender || 'Unspecified'} onChange={(e) => setProfile({...profile, gender: e.target.value})}>
                 <option value="Unspecified">Unspecified</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
-
               {user.isAnonymous && (
                  <button className="btn btn-google" style={{width:'100%', marginBottom:'20px', padding:'10px'}} onClick={linkGoogleAccount}>
                     <img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Secure Account with Google
                  </button>
               )}
-
               <div className="stats-row">
                 <div><strong>{profile?.gamesPlayed || 0}</strong> Matches</div>
                 <div><strong>{profile?.wins || 0}</strong> Wins</div>
               </div>
-
               <button className="btn btn-primary" style={{width: '100%'}} onClick={saveProfile}>Save Changes</button>
               <button className="btn-close" onClick={() => setActiveModal(null)}>Close</button>
             </div>
@@ -992,21 +924,16 @@ function App() {
   const players = gameState?.players || {};
   const isGameReady = Object.values(players).every(p => p.name !== "Waiting...");
 
-  // --- WAITING LOBBY SCREEN ---
   if (!isGameReady) {
     return (
       <div className="lobby-container">
         <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
         <div className="lobby-card waiting-card">
-          
           <div className="room-header pot-display" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', fontSize:'28px', padding:'15px', margin:'20px 0'}}>
             <strong>{roomCode}</strong>
             <button className="btn-copy" onClick={copyRoomCode}>📋</button>
           </div>
-
           <p className="lobby-subtitle">Share this code to invite players!</p>
-          
-          {/* Invite Friend Section */}
           {Object.keys(profile?.friends || {}).length > 0 && (
              <div className="invite-friend-scroll">
                <p style={{fontSize:'12px', color:'#94a3b8', margin:'0 0 5px'}}>Invite a Friend:</p>
@@ -1019,7 +946,6 @@ function App() {
                </div>
              </div>
           )}
-
           <div className="waiting-players-grid">
             {TURN_ORDER.filter(c => players[c]).map(color => {
               const p = players[color];
@@ -1056,7 +982,6 @@ function App() {
       <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
       <div className="game-container">
         
-        {/* TOP BAR - Hidden Room Code during active game */}
         <div className="top-bar" style={{justifyContent: 'flex-end'}}>
           <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
           <button className="settings-icon-btn" onClick={() => setActiveModal('settings')}>⚙️</button>
@@ -1101,7 +1026,6 @@ function App() {
           </div>
         )}
 
-        {/* IN-GAME SETTINGS MODAL */}
         {activeModal === 'settings' && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -1127,7 +1051,6 @@ function App() {
           </div>
         )}
 
-        {/* --- DYNAMIC HEIGHT CHAT OVERLAY --- */}
         {isChatOpen && (
           <div className="chat-overlay-backdrop" onClick={(e) => { if(e.target === e.currentTarget) setIsChatOpen(false) }}>
             <div className="chat-container">
