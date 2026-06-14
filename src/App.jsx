@@ -1,55 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
-import { ref, onValue, update, push, set, get } from "firebase/database";
+import { ref, onValue, update, push, set, get, remove } from "firebase/database";
 import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
 import './App.css';
 import Board from './Board';
 import Dice from './Dice';
 
 const BET_AMOUNT = 100;
-let globalSfxMuted = false;
-
-const playSound = (type) => {
-  if (globalSfxMuted) return;
-  try {
-    if (type === 'monster') {
-      const monsterAudio = new Audio('/Monster-laugh.mp3');
-      monsterAudio.play().catch(() => {});
-      return; 
-    }
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    if (type === 'move') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(900, ctx.currentTime); 
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-      osc.start(); osc.stop(ctx.currentTime + 0.05);
-    } else if (type === 'cut') {
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
-      gainNode.gain.setValueAtTime(0.6, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start(); osc.stop(ctx.currentTime + 0.3);
-    } else if (type === 'home') {
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime); osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.1); 
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.2); osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
-      gainNode.gain.setValueAtTime(0, ctx.currentTime); gainNode.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
-      gainNode.gain.setValueAtTime(0.4, ctx.currentTime + 0.3); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
-    }
-  } catch (e) {}
-};
-
-const playChatVoice = (audioId) => {
-  if (globalSfxMuted) return;
-  try {
-    const audio = new Audio(`/${audioId}.mp3`);
-    audio.play().catch(() => {});
-  } catch(e) {}
-};
 
 const BASE_POSITIONS = { red: [16, 19, 61, 64], green: [25, 28, 70, 73], blue: [151, 154, 196, 199], yellow: [160, 163, 205, 208] };
 const TURN_ORDER = ['red', 'green', 'yellow', 'blue'];
@@ -128,13 +85,87 @@ function App() {
   
   const isProcessingMove = useRef(false);
   const chatEndRef = useRef(null);
-  const audioRef = useRef(null);
-  const monsterAudioRef = useRef(null);
   const lastPlayedChatRef = useRef(null);
   
   const stateRef = useRef(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
-  useEffect(() => { globalSfxMuted = isSfxMuted; }, [isSfxMuted]);
+
+  // Audio References setup to prevent memory leaks
+  const sfxRefs = useRef({});
+  const audioCtxRef = useRef(null);
+  const bgmRef = useRef(null);
+
+  useEffect(() => {
+    sfxRefs.current.monster = new Audio('/Monster-laugh.mp3');
+    sfxRefs.current.monster.loop = true;
+    sfxRefs.current.roll = new Audio('/dice-roll.mp3');
+    sfxRefs.current.roll.playbackRate = 1.8;
+    sfxRefs.current.chat = new Audio();
+    
+    bgmRef.current = new Audio('/bg-music.mp3');
+    bgmRef.current.loop = true;
+
+    const startAudio = () => { 
+      if (!musicStarted && bgmRef.current) {
+        bgmRef.current.play().then(() => setMusicStarted(true)).catch(()=>{});
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtxRef.current = new AudioContext();
+      }
+    };
+    startAudio(); 
+    window.addEventListener('click', startAudio);
+    return () => window.removeEventListener('click', startAudio);
+  }, [musicStarted]);
+
+  const playSound = (type) => {
+    if (isSfxMuted) return;
+    try {
+      if (type === 'monster') {
+        sfxRefs.current.monster.play().catch(() => {});
+        return; 
+      }
+      if (type === 'roll') {
+         sfxRefs.current.roll.currentTime = 0;
+         sfxRefs.current.roll.play().catch(() => {});
+         return;
+      }
+      
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+  
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+  
+      if (type === 'move') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(900, ctx.currentTime); 
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        osc.start(); osc.stop(ctx.currentTime + 0.05);
+      } else if (type === 'cut') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.6, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+      } else if (type === 'home') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime); osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.1); 
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.2); osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0, ctx.currentTime); gainNode.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.4, ctx.currentTime + 0.3); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
+      }
+    } catch (e) {}
+  };
+
+  const playChatVoice = (audioId) => {
+    if (isSfxMuted) return;
+    try {
+      const audio = sfxRefs.current.chat;
+      audio.src = `/${audioId}.mp3`;
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch(e) {}
+  };
 
   useEffect(() => {
     getRedirectResult(auth).catch((error) => {
@@ -251,12 +282,31 @@ function App() {
     const snapshot = await get(usersRef);
     if (snapshot.exists()) {
       const usersObj = snapshot.val();
-      // Inject uid into each object before sorting to allow friend adding
       const usersArray = Object.entries(usersObj)
         .map(([uid, data]) => ({ ...data, uid }))
         .sort((a, b) => (b.coins || 0) - (a.coins || 0))
         .slice(0, 50); 
       setLeaderboard(usersArray);
+    }
+  };
+
+  const addFriend = async () => {
+    if (!friendCodeInput || friendCodeInput.length < 6) return setAlertMsg("Invalid code!");
+    if (friendCodeInput === profile.friendCode) return setAlertMsg("Can't add yourself!");
+    
+    const usersRef = ref(db, 'users');
+    const snapshot = await get(usersRef);
+    if (snapshot.exists()) {
+      const usersData = snapshot.val();
+      let foundFriend = null; let friendUid = null;
+      Object.entries(usersData).forEach(([uid, data]) => {
+        if (data.friendCode === friendCodeInput) { foundFriend = data; friendUid = uid; }
+      });
+      if (foundFriend) {
+        await update(ref(db, `users/${user.uid}/friends/${friendUid}`), { name: foundFriend.displayName, photoURL: foundFriend.photoURL });
+        setAlertMsg("Friend added!");
+        setFriendCodeInput("");
+      } else { setAlertMsg("Player not found!"); }
     }
   };
 
@@ -297,23 +347,19 @@ function App() {
   }, [gameState?.winner, roomCode, user?.uid]);
 
   useEffect(() => {
-    if (!monsterAudioRef.current) { monsterAudioRef.current = new Audio('/Monster-laugh.mp3'); monsterAudioRef.current.loop = true; }
-  }, []);
-
-  useEffect(() => {
-    if (gameState?.attackingToken && !isSfxMuted) monsterAudioRef.current?.play().catch(()=>{});
-    else if (monsterAudioRef.current) { monsterAudioRef.current.pause(); monsterAudioRef.current.currentTime = 0; }
+    if (gameState?.attackingToken && !isSfxMuted) {
+      sfxRefs.current.monster?.play().catch(()=>{});
+    } else if (sfxRefs.current.monster) { 
+      sfxRefs.current.monster.pause(); 
+      sfxRefs.current.monster.currentTime = 0; 
+    }
   }, [gameState?.attackingToken, isSfxMuted]);
 
-  useEffect(() => {
-    if (!audioRef.current) { audioRef.current = new Audio('/bg-music.mp3'); audioRef.current.loop = true; }
-    const startAudio = () => { if (!musicStarted && audioRef.current) audioRef.current.play().then(() => setMusicStarted(true)).catch(()=>{}); };
-    startAudio(); window.addEventListener('click', startAudio);
-    return () => window.removeEventListener('click', startAudio);
-  }, [musicStarted]);
-
   useEffect(() => { 
-    if (audioRef.current) { audioRef.current.volume = bgmVolume; audioRef.current.muted = (isMusicMuted || bgmVolume === 0); }
+    if (bgmRef.current) { 
+      bgmRef.current.volume = bgmVolume; 
+      bgmRef.current.muted = (isMusicMuted || bgmVolume === 0); 
+    }
   }, [bgmVolume, isMusicMuted]);
 
   useEffect(() => {
@@ -621,12 +667,13 @@ function App() {
 
     const currentPlayerKey = state.currentPlayer;
     const isBotTurn = state.players?.[currentPlayerKey]?.isBot;
+    let botTimer1, botTimer2;
 
     if (isBotTurn) {
       if (state.currentRoll === 0 && !state.botRolling) {
         isProcessingMove.current = true;
         update(ref(db, `rooms/${roomCode}`), { botRolling: true }).then(() => {
-           setTimeout(() => {
+           botTimer1 = setTimeout(() => {
              isProcessingMove.current = false; 
              const roll = Math.floor(Math.random() * 6) + 1;
              handleRoll(roll); 
@@ -638,7 +685,7 @@ function App() {
         
         if (validMoves.length > 0) {
           isProcessingMove.current = true;
-          setTimeout(() => {
+          botTimer2 = setTimeout(() => {
             let bestMove = { pos: validMoves[0], score: -1 };
             validMoves.forEach(pos => {
                let score = 0;
@@ -664,6 +711,10 @@ function App() {
         } 
       }
     }
+    return () => {
+      if (botTimer1) clearTimeout(botTimer1);
+      if (botTimer2) clearTimeout(botTimer2);
+    };
   }, [gameState?.currentPlayer, gameState?.currentRoll, gameState?.isAnimating, gameState?.botRolling]);
 
   const saveProfile = () => {
@@ -748,14 +799,13 @@ function App() {
           <button className="btn-huge btn-computer" onClick={() => createRoom(true)}>
              <span className="btn-icon">📱</span> VS COMPUTER
           </button>
-          <div style={{display:'flex', gap:'10px'}}>
-            <button className="btn-huge btn-leaderboard" style={{flex:1}} onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
-               <span className="btn-icon">🏆</span> RANKINGS
-            </button>
-            <button className="btn-huge btn-friends" style={{flex:1, background: '#a855f7'}} onClick={() => setActiveModal('friends')}>
-               <span className="btn-icon">👥</span> FRIENDS
-            </button>
-          </div>
+          {/* Vertical alignment fix for these buttons */}
+          <button className="btn-huge btn-leaderboard" onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}>
+             <span className="btn-icon">🏆</span> RANKINGS
+          </button>
+          <button className="btn-huge btn-friends" onClick={() => setActiveModal('friends')}>
+             <span className="btn-icon">👥</span> FRIENDS
+          </button>
         </div>
 
         <div className="home-bottom-nav">
@@ -1025,6 +1075,7 @@ function App() {
             botRolling={botRolling}
             consecutiveSixes={consecutiveSixes}
             isMyTurn={isMyTurn}
+            playRollSound={() => playSound('roll')}
           /> 
           
           <div className="action-buttons">
@@ -1067,7 +1118,7 @@ function App() {
           </div>
         )}
 
-        {/* --- 40% TRANSPARENT CHAT OVERLAY --- */}
+        {/* --- DYNAMIC HEIGHT CHAT OVERLAY --- */}
         {isChatOpen && (
           <div className="chat-overlay-backdrop" onClick={(e) => { if(e.target === e.currentTarget) setIsChatOpen(false) }}>
             <div className="chat-container">
