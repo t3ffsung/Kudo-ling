@@ -116,6 +116,21 @@ function App() {
   };
 
   const loginAsGuest = async () => { try { await signInAnonymously(auth); } catch (e) { setAlertMsg(`Guest Error: ${e.message}`); } };
+  
+  // NEW FUNCTION: Link an existing guest account to Google
+  const linkGoogleAccount = async () => {
+    try {
+      await linkWithPopup(auth.currentUser, googleProvider);
+      setAlertMsg("Account successfully linked with Google!");
+    } catch (e) {
+      if (e.code === 'auth/credential-already-in-use') {
+        setAlertMsg("This Google account is already registered. Please log out and sign in with Google directly.");
+      } else {
+        setAlertMsg(`Google Link Error: ${e.message}`);
+      }
+    }
+  };
+
   const handleSignOut = () => signOut(auth);
   const copyRoomCode = () => { if (roomCode) { navigator.clipboard.writeText(roomCode); setAlertMsg("Code copied!"); } }
 
@@ -379,7 +394,7 @@ function App() {
 
   const uiState = { user, profile, activeModal, leaderboard, alertMsg, pendingInvite, friendCodeInput, roomCode, joinInput, playerSelect, gameState, isChatOpen, chatMode, chatMsg, bgmVolume, isMusicMuted, isSfxMuted, isHost };
   const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
-  const gameActions = { loginWithGoogle, loginAsGuest, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
+  const gameActions = { loginWithGoogle, loginAsGuest, linkGoogleAccount, fetchLeaderboard, addFriendDirectly, inviteFriend, acceptInvite, declineInvite, challengeFriend, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
   // 1. App Loads -> Show Splash Screen (Which asks for name first)
   if (showSplash) return <SplashScreen onComplete={handleSplashComplete} />;
