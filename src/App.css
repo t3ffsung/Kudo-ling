@@ -240,13 +240,17 @@ body {
 .action-buttons { display: flex; flex-direction: row; gap: 15px; margin-top: 20px; align-items: center; flex-wrap: nowrap; justify-content: center; width: 100%; max-width: 450px; padding: 0 10px; }
 .action-buttons .btn { flex: 1; padding: 18px 0; margin: 0; font-size: 15px; }
 
-/* FIX: Mathematical precision scaling for mobile phones to stretch board safely without scrolling */
+/* Mathematical precision scaling for mobile phones to stretch board safely without scrolling */
 @media (max-width: 600px) {
   .game-wrapper { padding: 5px; gap: 10px; }
   .top-bar { margin-bottom: 5px; }
   .action-buttons { margin-top: 5px; }
-  /* 94vw ensures borders don't spill off the sides of the viewport */
-  .board-scaler { transform: scale(calc(94vw / 520)); height: calc(94vw); margin-bottom: 0; } 
+  .board-scaler { 
+    transform: scale(min(1, calc(95vw / 536))); 
+    transform-origin: top center;
+    height: calc(536px * min(1, calc(95vw / 536))); 
+    margin-bottom: 0; 
+  } 
 }
 @media (max-width: 500px) {
   .top-bar { flex-wrap: wrap; justify-content: center;}
@@ -272,7 +276,7 @@ body {
 .cell.has-monster { z-index: 999 !important; }
 .cell.path-cell { outline: 1px solid rgba(0,0,0,0.25); z-index: 1; }
 
-/* FIX: Mask gridlines completely in white boxes using box-shadow bleeding */
+/* Mask gridlines completely in white boxes using box-shadow bleeding */
 .cell.white-box { background-color: #f8fafc; outline: none; box-shadow: 0 0 0 1.5px #f8fafc; z-index: 2; }
 
 .cell.base-bg { outline: none; }
@@ -298,10 +302,11 @@ body {
 .cell.slot-blue::before { background-color: #0ea5e9; border-color: #082f49; } 
 .cell.slot-yellow::before { background-color: #eab308; border-color: #713f12; }
 .cell.slot-tl, .cell.slot-tr, .cell.slot-bl, .cell.slot-br { z-index: 3; }
-.cell.slot-tl::before, .cell.slot-tl .token-group { transform: translate(14px, 14px); }
-.cell.slot-tr::before, .cell.slot-tr .token-group { transform: translate(-14px, 14px); }
-.cell.slot-bl::before, .cell.slot-bl .token-group { transform: translate(14px, -14px); }
-.cell.slot-br::before, .cell.slot-br .token-group { transform: translate(-14px, -14px); }
+/* Use percentages so positions stay perfectly aligned no matter the board zoom level */
+.cell.slot-tl::before, .cell.slot-tl .token-group { transform: translate(35%, 35%); }
+.cell.slot-tr::before, .cell.slot-tr .token-group { transform: translate(-35%, 35%); }
+.cell.slot-bl::before, .cell.slot-bl .token-group { transform: translate(35%, -35%); }
+.cell.slot-br::before, .cell.slot-br .token-group { transform: translate(-35%, -35%); }
 
 /* =========================================
    8. PIXEL-PERFECT LOCATION PINS & EFFECTS
@@ -365,14 +370,14 @@ body {
 .dice-status { margin-top: 15px; font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-align: center; color: #f8fafc;}
 
 /* =========================================
-   10. CHAT OVERLAY SYSTEM (Exactly 40% height)
+   10. CHAT OVERLAY SYSTEM (Enlarged)
 ========================================= */
 .chat-overlay-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; pointer-events: none; z-index: 2000; display: flex; justify-content: center; align-items: flex-end; }
 
-/* FIX: EXACTLY 40vh for mobile devices */
+/* Increased height dynamically using dvh */
 .chat-container { 
   pointer-events: auto; width: 100%; max-width: 600px; 
-  height: 40vh !important; min-height: 40vh !important; max-height: 40vh !important; 
+  height: 55dvh !important; min-height: 350px !important; max-height: 60dvh !important; 
   background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-radius: 25px 25px 0 0; box-shadow: 0px -10px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.2); animation: slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
 }
