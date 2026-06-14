@@ -1,0 +1,21 @@
+{
+  "name": "Let's Ludo",
+  "short_name": "Let's Ludo",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#001155",
+  "theme_color": "#0055ff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/lets-ludo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/lets-ludo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
