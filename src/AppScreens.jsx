@@ -112,7 +112,6 @@ export const LobbyScreen = ({ uiState, uiActions, gameActions }) => {
 export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   const { gameState, roomCode, user, isChatOpen, chatMode, chatMsg, bgmVolume, isMusicMuted, isSfxMuted } = uiState;
   const players = gameState?.players || {};
-  const activeColors = gameState?.activeColors || ['red'];
   const currentPlayer = gameState?.currentPlayer || 'red';
   const currentRoll = gameState?.currentRoll || 0;
   const consecutiveSixes = gameState?.consecutiveSixes || 0;
@@ -131,20 +130,24 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
   else if (myColor === 'yellow') boardRotation = 90;
 
   const [boardScale, setBoardScale] = useState(1);
+  const baseBoardSize = 520;
   
   useEffect(() => {
     const handleResize = () => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
       
-      // Scale by width to fit mobile screens
-      let scaleW = screenW < 530 ? screenW / 530 : 1;
+      // Calculate available space to ensure the UI isn't pushed off-screen
+      // The top bar + dice + action buttons need about 260px of vertical space.
+      const uiHeight = 260; 
       
-      // Crucial Fix: Also scale by height to ensure buttons are never pushed off-screen vertically
-      let scaleH = screenH < 750 ? (screenH - 220) / 500 : 1;
+      let scaleW = screenW / baseBoardSize;
+      let scaleH = (screenH - uiHeight) / baseBoardSize;
       
-      setBoardScale(Math.min(scaleW, scaleH));
+      // Select the scale that ensures the board fits both horizontally and vertically
+      setBoardScale(Math.min(scaleW, scaleH, 1));
     };
+    
     handleResize(); 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -168,7 +171,8 @@ export const GameScreen = ({ uiState, uiActions, gameActions, chatEndRef }) => {
           </div>
         </div>
 
-        <div className="board-scaler" style={{ transform: `scale(${boardScale})` }}>
+        {/* The height is dynamically reduced here alongside the transform scale to prevent invisible padding overflows */}
+        <div className="board-scaler" style={{ transform: `scale(${boardScale})`, height: `${baseBoardSize * boardScale}px` }}>
           <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={gameActions.handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : gameActions.getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} boardRotation={boardRotation} players={players} chatList={chatList} />
         </div>
         
