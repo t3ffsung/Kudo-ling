@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, auth, googleProvider } from './firebase';
 import { ref, onValue, update, push, set, get, remove } from "firebase/database";
-import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, linkWithRedirect, getRedirectResult } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, signInAnonymously, signOut, onAuthStateChanged, linkWithPopup, getRedirectResult } from "firebase/auth";
 import './App.css';
 import './Game.css';
-import Board from './Board';
-import Dice from './Dice';
-import { BET_AMOUNT, BASE_POSITIONS, TURN_ORDER, SAFE_SPOTS, PATHS, VOICE_PRESETS, EMOJIS, AVATARS, normalizeTokens } from './constants';
-import { CustomAlert, ProfileModal, FriendsModal, LeaderboardModal, SettingsModal, HostJoinModal } from './Modals';
+import { BET_AMOUNT, BASE_POSITIONS, TURN_ORDER, SAFE_SPOTS, PATHS, AVATARS, normalizeTokens } from './constants';
+import { LoginScreen, HomeScreen, LobbyScreen, GameScreen } from './AppScreens';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -49,24 +47,13 @@ function App() {
   const playSound = (type) => {
     if (isSfxMutedRef.current) return;
     try {
-      if (type === 'roll') {
-        const rollAudio = new Audio('/dice-roll.mp3');
-        rollAudio.playbackRate = 1.8;
-        rollAudio.play().catch(()=>{});
-        return;
-      }
-      if (type === 'monster') {
-        const monsterAudio = new Audio('/Monster-laugh.mp3');
-        monsterAudio.play().catch(() => {});
-        return; 
-      }
+      if (type === 'roll') { const audio = new Audio('/dice-roll.mp3'); audio.playbackRate = 1.8; audio.play().catch(()=>{}); return; }
+      if (type === 'monster') { const audio = new Audio('/Monster-laugh.mp3'); audio.play().catch(()=>{}); return; }
+      
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gainNode = ctx.createGain();
+      osc.connect(gainNode); gainNode.connect(ctx.destination);
   
       if (type === 'move') {
         osc.type = 'sine'; osc.frequency.setValueAtTime(900, ctx.currentTime); 
@@ -102,19 +89,13 @@ function App() {
             const data = snapshot.val();
             if (!data.friendCode) {
               const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-              update(userRef, { friendCode: code });
-              data.friendCode = code;
+              update(userRef, { friendCode: code }); data.friendCode = code;
             }
             setProfile(data);
           } else {
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const newProfile = {
-              displayName: currentUser.displayName || `Player_${Math.floor(Math.random()*1000)}`,
-              photoURL: currentUser.photoURL || AVATARS[0],
-              coins: 1000, gender: 'Unspecified', country: '🌍', friendCode: code, friends: {}, wins: 0, gamesPlayed: 0
-            };
-            set(userRef, newProfile);
-            setProfile(newProfile);
+            const newProfile = { displayName: currentUser.displayName || `Player_${Math.floor(Math.random()*1000)}`, photoURL: currentUser.photoURL || AVATARS[0], coins: 1000, gender: 'Unspecified', country: '🌍', friendCode: code, friends: {}, wins: 0, gamesPlayed: 0 };
+            set(userRef, newProfile); setProfile(newProfile);
           }
         });
         onValue(ref(db, `users/${currentUser.uid}/invite`), (snap) => setPendingInvite(snap.exists() ? snap.val() : null));
@@ -126,29 +107,25 @@ function App() {
   const loginWithGoogle = async () => {
     try { 
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
-        await signInWithRedirect(auth, googleProvider);
-      } else await signInWithPopup(auth, googleProvider); 
+      if (isMobile && window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) await signInWithRedirect(auth, googleProvider);
+      else await signInWithPopup(auth, googleProvider); 
     } catch (e) { setAlertMsg(`Google Login Error: ${e.message}`); }
   };
 
-  const loginAsGuest = async () => {
-    try { await signInAnonymously(auth); } catch (e) { setAlertMsg(`Guest Login Error: ${e.message}`); }
-  };
-
+  const loginAsGuest = async () => { try { await signInAnonymously(auth); } catch (e) { setAlertMsg(`Guest Login Error: ${e.message}`); } };
+  const handleSignOut = () => signOut(auth);
+  
   const linkGoogleAccount = async () => {
     try {
       const result = await linkWithPopup(auth.currentUser, googleProvider);
       const updates = { displayName: result.user.displayName || profile.displayName, photoURL: result.user.photoURL || profile.photoURL };
       await update(ref(db, `users/${result.user.uid}`), updates);
-      setProfile({...profile, ...updates});
-      setAlertMsg("Account successfully secured with Google!");
+      setProfile({...profile, ...updates}); setAlertMsg("Account secured with Google!");
     } catch (e) { setAlertMsg(`Failed to link account: ${e.message}`); }
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
+    const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -162,17 +139,11 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  const saveProfile = () => {
-    if(!user || !profile) return;
-    update(ref(db, `users/${user.uid}`), { displayName: profile.displayName, gender: profile.gender, photoURL: profile.photoURL, country: profile.country });
-    setActiveModal(null); setAlertMsg("Profile Successfully Updated!");
-  };
+  const saveProfile = () => { if(!user || !profile) return; update(ref(db, `users/${user.uid}`), { displayName: profile.displayName, gender: profile.gender, photoURL: profile.photoURL, country: profile.country }); setActiveModal(null); setAlertMsg("Profile Updated!"); };
 
   const fetchLeaderboard = async () => {
     const snapshot = await get(ref(db, 'users'));
-    if (snapshot.exists()) {
-      setLeaderboard(Object.entries(snapshot.val()).map(([uid, data]) => ({ ...data, uid })).sort((a, b) => (b.coins || 0) - (a.coins || 0)).slice(0, 50));
-    }
+    if (snapshot.exists()) setLeaderboard(Object.entries(snapshot.val()).map(([uid, data]) => ({ ...data, uid })).sort((a, b) => (b.coins || 0) - (a.coins || 0)).slice(0, 50));
   };
 
   const addFriendDirectly = async (friendUid, friendName, friendPhoto) => {
@@ -181,22 +152,20 @@ function App() {
     setAlertMsg(`${friendName} added to friends!`);
   };
 
-  const addFriend = () => {
-     // NOTE: Ensure your Firebase lookup logic here is correct based on your original app needs.
-     setAlertMsg("Friend added via code logic goes here!"); 
-  };
-
+  const addFriend = () => { setAlertMsg("Friend added via code logic goes here!"); };
+  
   const inviteFriend = (friendUid) => {
     if(!roomCode) return;
-    set(ref(db, `users/${friendUid}/invite`), { roomCode, senderName: profile.displayName });
-    setAlertMsg("Invite sent!");
+    set(ref(db, `users/${friendUid}/invite`), { roomCode, senderName: profile.displayName }); setAlertMsg("Invite sent!");
   };
 
+  const declineInvite = () => remove(ref(db, `users/${user.uid}/invite`));
+  
   const acceptInvite = () => {
-    if(pendingInvite?.roomCode) {
-      setJoinInput(pendingInvite.roomCode); remove(ref(db, `users/${user.uid}/invite`)); joinRoom(pendingInvite.roomCode);
-    }
+    if(pendingInvite?.roomCode) { setJoinInput(pendingInvite.roomCode); declineInvite(); joinRoom(pendingInvite.roomCode); }
   };
+  
+  const copyRoomCode = () => { navigator.clipboard.writeText(roomCode); setAlertMsg("Code copied!"); };
 
   const createRoom = async (vsBot = false) => {
     if (!profile || profile.coins < BET_AMOUNT) return setAlertMsg(`Need ${BET_AMOUNT} coins!`);
@@ -219,11 +188,7 @@ function App() {
     
     try {
       await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
-      await update(ref(db, `rooms/${code}`), {
-        tokens: initialTokens, players: playersInfo, activeColors: orderedColors, currentPlayer: orderedColors[0],
-        currentRoll: 0, consecutiveSixes: 0, winner: "", isAnimating: false, botRolling: false, attackingToken: null,
-        payoutClaimed: false, pot: vsBot ? (BET_AMOUNT * 2) : BET_AMOUNT, scores: { red: 0, green: 0, yellow: 0, blue: 0 }
-      });
+      await update(ref(db, `rooms/${code}`), { tokens: initialTokens, players: playersInfo, activeColors: orderedColors, currentPlayer: orderedColors[0], currentRoll: 0, consecutiveSixes: 0, winner: "", isAnimating: false, botRolling: false, attackingToken: null, payoutClaimed: false, pot: vsBot ? (BET_AMOUNT * 2) : BET_AMOUNT, scores: { red: 0, green: 0, yellow: 0, blue: 0 } });
       setIsHost(true); setRoomCode(code); setActiveModal(null);
     } catch (e) { setAlertMsg("Failed to connect."); }
   };
@@ -237,7 +202,6 @@ function App() {
         const data = snapshot.val();
         if(data.winner) return setAlertMsg("Game finished!");
         let assignedColor = Object.keys(data?.players || {}).find(color => data.players[color]?.name === "Waiting...");
-        
         if (assignedColor) {
            await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
            await update(ref(db, `rooms/${codeToJoin}`), { pot: (data.pot || 0) + BET_AMOUNT });
@@ -249,9 +213,8 @@ function App() {
   };
 
   const leaveLobby = async () => {
-    const winRef = ref(db, `users/${user.uid}`);
-    const snap = await get(winRef);
-    if(snap.exists()) { await update(winRef, { coins: snap.val().coins + BET_AMOUNT, gamesPlayed: Math.max(0, snap.val().gamesPlayed - 1) }); }
+    const snap = await get(ref(db, `users/${user.uid}`));
+    if(snap.exists()) { await update(ref(db, `users/${user.uid}`), { coins: snap.val().coins + BET_AMOUNT, gamesPlayed: Math.max(0, snap.val().gamesPlayed - 1) }); }
     setRoomCode(null); setIsHost(false);
   };
 
@@ -259,8 +222,7 @@ function App() {
     if (gameState && roomCode && user) {
        let myColor = Object.keys(gameState.players || {}).find(c => gameState.players[c].uid === user.uid);
        if (myColor && !gameState.winner) {
-          const active = gameState.activeColors || [];
-          const remaining = active.filter(c => c !== myColor);
+          const active = gameState.activeColors || []; const remaining = active.filter(c => c !== myColor);
           let updates = { activeColors: remaining };
           if (remaining.length === 1) updates.winner = remaining[0]; 
           else if (remaining.length === 0) updates.winner = "Draw"; 
@@ -277,7 +239,6 @@ function App() {
     if (type === 'text') { if (!chatMsg.trim()) return; textContent = chatMsg; setChatMsg(""); } 
     else if (type === 'voice') { textContent = payload.label; audioId = payload.id; } 
     else if (type === 'emoji') { textContent = payload; }
-
     push(ref(db, `rooms/${roomCode}/chat`), { sender: profile?.displayName || 'Player', text: textContent, type: type, audioId: audioId, timestamp: Date.now() });
   };
 
@@ -294,8 +255,7 @@ function App() {
   };
 
   const handleRoll = async (value) => {
-    const state = stateRef.current;
-    if (state?.isAnimating) return;
+    const state = stateRef.current; if (state?.isAnimating) return;
     const activePlayer = state.players?.[state.currentPlayer];
     if (!activePlayer?.isBot && activePlayer?.uid !== user.uid) return;
     
@@ -305,8 +265,7 @@ function App() {
         await update(ref(db, `rooms/${roomCode}`), { currentRoll: value, botRolling: false, consecutiveSixes: 3, isAnimating: true });
         setTimeout(async () => {
           const safeColors = stateRef.current?.activeColors || ['red'];
-          const nextIndex = (safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length;
-          await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[nextIndex], currentRoll: 0, consecutiveSixes: 0, isAnimating: false });
+          await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[(safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length], currentRoll: 0, consecutiveSixes: 0, isAnimating: false });
         }, 800); 
         return; 
       }
@@ -317,13 +276,10 @@ function App() {
       if (playableTokens.length === 0) {
          setTimeout(async () => { 
            const safeColors = stateRef.current?.activeColors || ['red'];
-           const nextIndex = (safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length;
-           await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[nextIndex], currentRoll: 0, consecutiveSixes: 0 });
+           await update(ref(db, `rooms/${roomCode}`), { currentPlayer: safeColors[(safeColors.indexOf(stateRef.current?.currentPlayer) + 1) % safeColors.length], currentRoll: 0, consecutiveSixes: 0 });
          }, 500); 
       } else if ([...new Set(playableTokens)].length === 1 && !activePlayer?.isBot) {
-         setTimeout(() => {
-           handleTokenClick(state.currentPlayer, [...new Set(playableTokens)][0], tokensObj[state.currentPlayer].findIndex(p => p === [...new Set(playableTokens)][0]));
-         }, 300); 
+         setTimeout(() => { handleTokenClick(state.currentPlayer, [...new Set(playableTokens)][0], tokensObj[state.currentPlayer].findIndex(p => p === [...new Set(playableTokens)][0])); }, 300); 
       }
     } catch (error) {}
   };
@@ -375,6 +331,7 @@ function App() {
           }
           isProcessingMove.current = false; await update(ref(db, `rooms/${roomCode}`), updates);
         };
+        
         if (cutOpponents.length > 0) {
           await update(ref(db, `rooms/${roomCode}`), { tokens: localTokens, attackingToken: { color, index: tokenArrayIndex } });
           setTimeout(() => {
@@ -452,9 +409,7 @@ function App() {
     if (state.players?.[currentPlayerKey]?.isBot) {
       if (state.currentRoll === 0 && !state.botRolling) {
         isProcessingMove.current = true;
-        update(ref(db, `rooms/${roomCode}`), { botRolling: true }).then(() => {
-           setTimeout(() => { isProcessingMove.current = false; handleRoll(Math.floor(Math.random() * 6) + 1); }, 400); 
-        });
+        update(ref(db, `rooms/${roomCode}`), { botRolling: true }).then(() => { setTimeout(() => { isProcessingMove.current = false; handleRoll(Math.floor(Math.random() * 6) + 1); }, 400); });
       } else if (state.currentRoll > 0 && !state.botRolling) {
         const tokensObj = normalizeTokens(state.tokens);
         const validMoves = getValidMoves(state.currentRoll, tokensObj, currentPlayerKey);
@@ -481,204 +436,19 @@ function App() {
     }
   }, [gameState?.currentPlayer, gameState?.currentRoll, gameState?.isAnimating, gameState?.botRolling]);
 
-  if (!user) {
-    return (
-      <div className="login-screen">
-        <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
-        <div className="login-card">
-          <div className="ludo-title login-logo"><span className="crown">👑</span><br/>LUDO <span>KING</span></div>
-          <p className="login-subtitle">Connect and claim your 1000 🪙 bonus!</p>
-          <div className="login-actions">
-            <button className="btn-google" onClick={loginWithGoogle}><img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="G" /> Sign in with Google</button>
-            <button className="btn-guest" onClick={loginAsGuest}>👤 Play as Guest</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Grouped Object Props to prevent prop-drilling hell in AppScreens
+  const uiState = { user, profile, activeModal, leaderboard, alertMsg, pendingInvite, friendCodeInput, roomCode, joinInput, playerSelect, gameState, isChatOpen, chatMode, chatMsg, bgmVolume, isMusicMuted, isSfxMuted, isHost };
+  const uiActions = { setActiveModal, setAlertMsg, setFriendCodeInput, setJoinInput, setPlayerSelect, setIsChatOpen, setChatMode, setChatMsg, setBgmVolume, setIsMusicMuted, setIsSfxMuted, setRoomCode, setIsHost, setProfile };
+  const gameActions = { loginWithGoogle, loginAsGuest, linkGoogleAccount, handleImageUpload, saveProfile, fetchLeaderboard, addFriendDirectly, addFriend, inviteFriend, acceptInvite, declineInvite, createRoom, joinRoom, leaveLobby, handleForfeit, handleSendChat, getValidMoves, handleRoll, handleTokenClick, playSound, playChatVoice, handleSignOut, copyRoomCode };
 
-  if (!roomCode) {
-    return (
-      <div className="home-container">
-        <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
-        {pendingInvite && (
-          <div className="invite-popup">
-            <p><strong>{pendingInvite.senderName}</strong> invited you!</p>
-            <div style={{display:'flex', gap:'10px', marginTop:'10px'}}>
-              <button className="btn btn-primary" onClick={acceptInvite}>Accept</button>
-              <button className="btn btn-leave" onClick={() => remove(ref(db, `users/${user.uid}/invite`))}>Decline</button>
-            </div>
-          </div>
-        )}
-        <div className="floating-bg-item token-float-1"></div>
-        <div className="floating-bg-item dice-float-1">🎲</div>
-        <div className="floating-bg-item coin-float-1">🪙</div>
-        
-        <div className="home-header">
-          <div className="home-profile" onClick={() => setActiveModal('profile')}>
-            <img src={profile?.photoURL || 'https://via.placeholder.com/50'} alt="Profile" />
-            <div className="home-profile-info">
-              <span className="home-name">{profile?.country} {profile?.displayName}</span>
-              <div className="level-star">⭐ Level {Math.max(1, Math.floor((profile?.wins || 0)/2) + 1)}</div>
-            </div>
-          </div>
-          <div className="home-coins-container">
-             <div className="home-coins"><span className="coin-icon">🪙</span> <span>{profile?.coins || 0}</span></div>
-             <button className="btn-more-coins" onClick={() => setAlertMsg("Daily Reward: +50 Coins coming soon!")}>MORE COINS</button>
-          </div>
-        </div>
-
-        <div className="home-main-logo"><h1 className="ludo-title animated-title"><span className="crown glow-pulse">👑</span><br/>LUDO <span>KING</span></h1></div>
-
-        <div className="home-actions">
-          <button className="btn-huge btn-multiplayer" onClick={() => setActiveModal('host')}><span className="btn-icon">🌍</span> ONLINE MULTIPLAYER</button>
-          <button className="btn-huge btn-computer" onClick={() => createRoom(true)}><span className="btn-icon">📱</span> VS COMPUTER</button>
-          <div style={{display:'flex', gap:'10px'}}>
-            <button className="btn-huge btn-leaderboard" style={{flex:1}} onClick={() => { fetchLeaderboard(); setActiveModal('leaderboard'); }}><span className="btn-icon">🏆</span> RANKINGS</button>
-            <button className="btn-huge btn-friends" style={{flex:1, background: '#a855f7'}} onClick={() => setActiveModal('friends')}><span className="btn-icon">👥</span> FRIENDS</button>
-          </div>
-        </div>
-
-        <div className="home-bottom-nav">
-          <button className="nav-btn" onClick={() => setActiveModal('settings')}>⚙️ Settings</button>
-          <button className="nav-btn" onClick={() => signOut(auth)}>🚪 Logout</button>
-        </div>
-
-        {activeModal === 'host' && <HostJoinModal playerSelect={playerSelect} setPlayerSelect={setPlayerSelect} createRoom={createRoom} joinInput={joinInput} setJoinInput={setJoinInput} joinRoom={joinRoom} setActiveModal={setActiveModal} />}
-        {activeModal === 'friends' && <FriendsModal profile={profile} friendCodeInput={friendCodeInput} setFriendCodeInput={setFriendCodeInput} addFriend={addFriend} addFriendDirectly={addFriendDirectly} setActiveModal={setActiveModal} setAlertMsg={setAlertMsg} />}
-        {activeModal === 'profile' && <ProfileModal profile={profile} setProfile={setProfile} user={user} linkGoogleAccount={linkGoogleAccount} handleImageUpload={handleImageUpload} saveProfile={saveProfile} setActiveModal={setActiveModal} />}
-        {activeModal === 'leaderboard' && <LeaderboardModal leaderboard={leaderboard} user={user} addFriendDirectly={addFriendDirectly} setActiveModal={setActiveModal} />}
-        {activeModal === 'settings' && <SettingsModal bgmVolume={bgmVolume} setBgmVolume={setBgmVolume} isMusicMuted={isMusicMuted} setIsMusicMuted={setIsMusicMuted} isSfxMuted={isSfxMuted} setIsSfxMuted={setIsSfxMuted} setActiveModal={setActiveModal} />}
-      </div>
-    );
-  }
-
+  // --- THE ROUTER (Cleaned up!) ---
+  if (!user) return <LoginScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  if (!roomCode) return <HomeScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  
   const players = gameState?.players || {};
-  if (!Object.values(players).every(p => p.name !== "Waiting...")) {
-    return (
-      <div className="lobby-container">
-        <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
-        <div className="lobby-card waiting-card">
-          <div className="room-header pot-display" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', fontSize:'28px', padding:'15px', margin:'20px 0'}}>
-            <strong>{roomCode}</strong>
-            <button className="btn-copy" onClick={() => { navigator.clipboard.writeText(roomCode); setAlertMsg("Code copied!"); }}>📋</button>
-          </div>
-          <p className="lobby-subtitle">Share this code to invite players!</p>
-          {Object.keys(profile?.friends || {}).length > 0 && (
-             <div className="invite-friend-scroll">
-               <p style={{fontSize:'12px', color:'#94a3b8', margin:'0 0 5px'}}>Invite a Friend:</p>
-               <div style={{display:'flex', gap:'10px', overflowX:'auto'}}>
-                  {Object.entries(profile.friends).map(([fid, f]) => (
-                     <div key={fid} className="friend-invite-chip" onClick={() => inviteFriend(fid)}><img src={f.photoURL} alt="f"/> {f.name.split(" ")[0]}</div>
-                  ))}
-               </div>
-             </div>
-          )}
-          <div className="waiting-players-grid">
-            {TURN_ORDER.filter(c => players[c]).map(color => {
-              const p = players[color]; const isReady = p.name !== "Waiting...";
-              return (
-                 <div key={color} className={`waiting-slot ${color} ${isReady ? 'ready' : ''}`}>
-                    <div className="slot-avatar">{isReady ? '👤' : '⏳'}</div><div className="slot-name">{p.name}</div>
-                 </div>
-              )
-            })}
-          </div>
-          <div className="spinner"></div>
-          <p style={{marginTop:'20px', color:'#94a3b8', fontSize: '14px', fontWeight: 'bold'}}>Waiting for challengers...</p>
-          <button className="btn btn-leave" style={{marginTop:'25px', width:'100%'}} onClick={leaveLobby}>Cancel & Refund</button>
-        </div>
-      </div>
-    );
-  }
-
-  const activeColors = gameState?.activeColors || ['red'];
-  const currentPlayer = gameState?.currentPlayer || 'red';
-  const currentRoll = gameState?.currentRoll || 0;
-  const consecutiveSixes = gameState?.consecutiveSixes || 0;
-  const winner = gameState?.winner || "";
-  const isAnimating = gameState?.isAnimating || false;
-  const botRolling = gameState?.botRolling || false;
-  const chatList = gameState?.chat ? Object.values(gameState.chat) : [];
-  const attackingToken = gameState?.attackingToken || null;
-  const isMyTurn = players?.[currentPlayer]?.uid === user?.uid;
-
-  return (
-    <div className="game-wrapper">
-      <CustomAlert msg={alertMsg} onClose={() => setAlertMsg(null)} />
-      <div className="game-container">
-        <div className="top-bar" style={{justifyContent: 'flex-end'}}>
-          <div className="room-header pot-display">Pot: <strong>{gameState?.pot || 0} 🪙</strong></div>
-          <button className="settings-icon-btn" onClick={() => setActiveModal('settings')}>⚙️</button>
-        </div>
-
-        <div className="board-scaler">
-          <Board tokens={normalizeTokens(gameState?.tokens)} onTokenClick={handleTokenClick} currentPlayer={currentPlayer} validMoves={isAnimating ? [] : getValidMoves(currentRoll, normalizeTokens(gameState?.tokens), currentPlayer)} attackingToken={attackingToken} />
-        </div>
-        
-        <div className="dice-and-chat-controls">
-          <Dice currentRoll={currentRoll} onRoll={handleRoll} currentPlayer={currentPlayer} currentPlayerName={players?.[currentPlayer]?.name || currentPlayer} isAnimating={isAnimating} isBot={players?.[currentPlayer]?.isBot || false} botRolling={botRolling} consecutiveSixes={consecutiveSixes} isMyTurn={isMyTurn} playRollSound={() => playSound('roll')} /> 
-          <div className="action-buttons">
-            <button className="btn btn-chat-toggle" onClick={() => setIsChatOpen(true)}>💬 Live Chat</button>
-            <button className="btn btn-leave" onClick={handleForfeit}>🏳️ Surrender</button>
-          </div>
-        </div>
-
-        {winner && (
-          <div className="winner-overlay">
-            <h1>{players?.[winner]?.name || winner} Takes The Pot!</h1>
-            {winner !== "Draw" && <p className="win-pot-text">+{gameState?.pot} 🪙</p>}
-            <button className="btn btn-secondary" style={{ fontSize: '20px', padding: '15px 30px' }} onClick={() => {setRoomCode(null); setIsHost(false);}}>Return to Lobby</button>
-          </div>
-        )}
-
-        {activeModal === 'settings' && <SettingsModal bgmVolume={bgmVolume} setBgmVolume={setBgmVolume} isMusicMuted={isMusicMuted} setIsMusicMuted={setIsMusicMuted} isSfxMuted={isSfxMuted} setIsSfxMuted={setIsSfxMuted} setActiveModal={setActiveModal} />}
-
-        {isChatOpen && (
-          <div className="chat-overlay-backdrop" onClick={(e) => { if(e.target === e.currentTarget) setIsChatOpen(false) }}>
-            <div className="chat-container">
-              <div className="chat-header">
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span>Live Chat</span><button className="btn-close-chat" onClick={() => setIsChatOpen(false)}>✖</button>
-                </div>
-                <div className="chat-tabs">
-                  <button className={`tab-btn ${chatMode === 'text' ? 'active' : ''}`} onClick={() => setChatMode('text')}>💬</button>
-                  <button className={`tab-btn ${chatMode === 'voice' ? 'active' : ''}`} onClick={() => setChatMode('voice')}>🎤</button>
-                  <button className={`tab-btn ${chatMode === 'emoji' ? 'active' : ''}`} onClick={() => setChatMode('emoji')}>😀</button>
-                </div>
-              </div>
-              
-              <div className="chat-messages">
-                {chatList.map((msg, i) => (
-                  <div key={i} className={`chat-msg ${msg.sender === profile?.displayName ? 'self' : ''} ${msg.type === 'emoji' ? 'emoji-msg' : ''}`}>
-                    {msg.sender !== profile?.displayName && <div className="chat-sender">{msg.sender}</div>}
-                    {msg.type === 'voice' ? <div className="voice-bubble" onClick={() => playChatVoice(msg.audioId)}>🔊 {msg.text}</div> : <div>{msg.text}</div>}
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-
-              {chatMode === 'text' && (
-                <form className="chat-input-area" onSubmit={(e) => handleSendChat(e, 'text')}>
-                  <input placeholder="Transmit message..." value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} /><button type="submit">➜</button>
-                </form>
-              )}
-              {chatMode === 'voice' && (
-                <div className="chat-panel voice-panel">
-                  {VOICE_PRESETS.map((preset) => <button key={preset.id} className={`voice-preset-btn ${preset.gender === 'm' ? 'male' : 'female'}`} onClick={() => handleSendChat(null, 'voice', preset)}>{preset.label}</button>)}
-                </div>
-              )}
-              {chatMode === 'emoji' && (
-                <div className="chat-panel emoji-panel">
-                  {EMOJIS.map((emoji, index) => <button key={index} className="emoji-preset-btn" onClick={() => handleSendChat(null, 'emoji', emoji)}>{emoji}</button>)}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  if (!Object.values(players).every(p => p.name !== "Waiting...")) return <LobbyScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} />;
+  
+  return <GameScreen uiState={uiState} uiActions={uiActions} gameActions={gameActions} chatEndRef={chatEndRef} />;
 }
 
 export default App;
