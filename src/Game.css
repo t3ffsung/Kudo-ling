@@ -20,13 +20,12 @@
 
 @media (max-width: 600px) {
   .game-wrapper { padding: 0px; gap: 5px; } 
-  .top-bar { margin-bottom: 5px; margin-top: 10px; padding-right: 15px; }
+  .top-bar { margin-bottom: 5px; margin-top: 10px; padding: 0 15px; } 
   .action-buttons { margin-top: 5px; padding-bottom: 20px; }
   .board-scaler { 
-    transform: scale(min(1, calc(100vw / 520))); 
-    transform-origin: top center;
-    height: calc(520px * min(1, calc(100vw / 520))); 
     margin-bottom: 0; 
+    /* Scaling is now mathematically handled in AppScreens.jsx 
+       to prevent mobile browsers from ignoring invalid CSS calc values */
   } 
 }
 @media (max-width: 500px) {
