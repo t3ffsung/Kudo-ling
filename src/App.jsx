@@ -25,7 +25,7 @@ function App() {
   const [chatMode, setChatMode] = useState('text');
   const [chatMsg, setChatMsg] = useState("");
   
-  const [bgmVolume, setBgmVolume] = useState(0.35);
+  const [bgmVolume, setBgmVolume] = useState(0.15); // Reduced default by 60%
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [isSfxMuted, setIsSfxMuted] = useState(false);
 
@@ -35,7 +35,6 @@ function App() {
   const isProcessingMove = useRef(false);
   const chatEndRef = useRef(null);
   const audioRef = useRef(null);
-  const monsterAudioRef = useRef(null);
   const lastPlayedChatRef = useRef(null);
   
   const isSfxMutedRef = useRef(isSfxMuted);
@@ -116,7 +115,7 @@ function App() {
       await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
       await update(ref(db, `rooms/${code}`), {
         tokens: { red: BASE_POSITIONS.red, yellow: BASE_POSITIONS.yellow },
-        players: { red: { name: profile.displayName, uid: user.uid, isBot: false }, yellow: { name: "Waiting...", isBot: false } },
+        players: { red: { name: profile.displayName, uid: user.uid, isBot: false, photoURL: profile.photoURL || '' }, yellow: { name: "Waiting...", isBot: false } },
         activeColors: ['red', 'yellow'], currentPlayer: 'red', currentRoll: 0, consecutiveSixes: 0, winner: "", isAnimating: false, botRolling: false, attackingToken: null, payoutClaimed: false, pot: BET_AMOUNT * 2, scores: { red: 0, green: 0, yellow: 0, blue: 0 }
       });
       await set(ref(db, `users/${friendUid}/invite`), { roomCode: code, senderName: profile.displayName });
@@ -131,8 +130,8 @@ function App() {
     const initialTokens = {}; const playersInfo = {};
 
     if (count >= 2) { 
-      if (vsBot) { initialTokens.blue = BASE_POSITIONS.blue; initialTokens.green = BASE_POSITIONS.green; playersInfo.blue = { name: profile.displayName, uid: user.uid, isBot: false }; playersInfo.green = { name: "AI Bot", isBot: true }; } 
-      else { initialTokens.red = BASE_POSITIONS.red; initialTokens.yellow = BASE_POSITIONS.yellow; playersInfo.red = { name: profile.displayName, uid: user.uid, isBot: false }; playersInfo.yellow = { name: "Waiting...", isBot: false }; }
+      if (vsBot) { initialTokens.blue = BASE_POSITIONS.blue; initialTokens.green = BASE_POSITIONS.green; playersInfo.blue = { name: profile.displayName, uid: user.uid, isBot: false, photoURL: profile.photoURL || '' }; playersInfo.green = { name: "AI Bot", isBot: true, photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AIBot' }; } 
+      else { initialTokens.red = BASE_POSITIONS.red; initialTokens.yellow = BASE_POSITIONS.yellow; playersInfo.red = { name: profile.displayName, uid: user.uid, isBot: false, photoURL: profile.photoURL || '' }; playersInfo.yellow = { name: "Waiting...", isBot: false }; }
     } 
     if (count >= 3 && !vsBot) { initialTokens.green = BASE_POSITIONS.green; playersInfo.green = { name: "Waiting...", isBot: false }; }
     if (count === 4 && !vsBot) { initialTokens.blue = BASE_POSITIONS.blue; playersInfo.blue = { name: "Waiting...", isBot: false }; }
@@ -155,7 +154,7 @@ function App() {
         if (assignedColor) {
            await update(ref(db, `users/${user.uid}`), { coins: profile.coins - BET_AMOUNT, gamesPlayed: profile.gamesPlayed + 1 });
            await update(ref(db, `rooms/${codeToJoin}`), { pot: (data.pot || 0) + BET_AMOUNT });
-           await update(ref(db, `rooms/${codeToJoin}/players/${assignedColor}`), { name: profile.displayName, uid: user.uid });
+           await update(ref(db, `rooms/${codeToJoin}/players/${assignedColor}`), { name: profile.displayName, uid: user.uid, photoURL: profile.photoURL || '' });
            setIsHost(false); setRoomCode(codeToJoin); setActiveModal(null);
         } else setAlertMsg("Room full!");
       } else setAlertMsg("Room not found!");
@@ -262,8 +261,10 @@ function App() {
         };
         if (cutOpponents.length > 0) {
           await update(ref(db, `rooms/${roomCode}`), { tokens: localTokens, attackingToken: { color, index: tokenArrayIndex } });
+          
           setTimeout(() => {
             playSound('cut');
+            playSound('monster'); 
             const animateCuts = async () => {
               let stillMoving = false;
               cutOpponents.forEach(opp => {
@@ -287,12 +288,6 @@ function App() {
       }
     }
   }, [gameState?.winner, roomCode, user?.uid]);
-
-  useEffect(() => {
-    if (!monsterAudioRef.current) { monsterAudioRef.current = new Audio('/Monster-laugh.mp3'); monsterAudioRef.current.loop = true; }
-    if (gameState?.attackingToken && !isSfxMuted) monsterAudioRef.current?.play().catch(()=>{});
-    else if (monsterAudioRef.current) { monsterAudioRef.current.pause(); monsterAudioRef.current.currentTime = 0; }
-  }, [gameState?.attackingToken, isSfxMuted]);
 
   useEffect(() => {
     if (!audioRef.current) { audioRef.current = new Audio('/bg-music.mp3'); audioRef.current.loop = true; }
